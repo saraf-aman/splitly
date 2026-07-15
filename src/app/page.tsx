@@ -1,14 +1,17 @@
 "use client";
 
 import { signOut } from "firebase/auth";
+import Link from "next/link";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
-import { useHousehold, useUserHousehold } from "@/lib/household";
+import { useHousehold, useMembers, useUserHousehold } from "@/lib/household";
 
 export default function Home() {
   const { user } = useAuth();
   const { householdId } = useUserHousehold();
   const household = useHousehold(householdId);
+  const members = useMembers(householdId);
+  const isAdmin = members.find((m) => m.id === user?.uid)?.role === "admin";
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-50 px-6 dark:bg-black">
@@ -22,6 +25,14 @@ export default function Home() {
             Invite ID: <span className="font-mono">{household.id}</span>
           </p>
         </div>
+      )}
+      {isAdmin && (
+        <Link
+          href="/household"
+          className="text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+        >
+          Manage household
+        </Link>
       )}
       <button
         onClick={() => signOut(auth)}

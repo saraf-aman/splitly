@@ -13,15 +13,20 @@ Splitting grocery/restaurant bills in a shared household is tedious: not everyon
 
 ## 3. Roles
 
-| Action | Admin | Guest |
-|---|---|---|
-| Upload a bill | ✅ | ✅ |
-| Review/edit parsed items before confirming | ✅ | ✅ |
-| Select own items/shares on a bill | ✅ | ✅ |
-| View final grid | ✅ | ✅ |
-| Push final split to Splitwise | ✅ | ✅ |
-| Add/remove household members or guests | ✅ | ❌ |
-| Change household settings | ✅ | ❌ |
+Three-tier hierarchy: **Creator** (the household's original creator — a permanent super-admin) > **Admin** > **Guest**. There is exactly one creator per household, identified by `households/{id}.createdBy`, not a separate role value in the `Member` doc (a creator's `role` field is still `"admin"`). This tier is a general pattern intended to extend to other critical/sensitive actions added in later phases, not just member management.
+
+| Action | Creator | Admin | Guest |
+|---|---|---|---|
+| Upload a bill | ✅ | ✅ | ✅ |
+| Review/edit parsed items before confirming | ✅ | ✅ | ✅ |
+| Select own items/shares on a bill | ✅ | ✅ | ✅ |
+| View final grid | ✅ | ✅ | ✅ |
+| Push final split to Splitwise | ✅ | ✅ | ✅ |
+| Promote a guest to admin | ✅ | ✅ | ❌ |
+| Remove a guest | ✅ | ✅ | ❌ |
+| Demote or remove an admin | ✅ | ❌ | ❌ |
+| Be demoted or removed (as the creator) | ❌ (nobody can, not even themself) | — | — |
+| Change household settings | ✅ | ✅ | ❌ |
 
 Guests sign in with their own Google account (not a proxy/shared login) so they can interact independently in realtime. Removing a guest revokes future access only — it does not alter their selections on past bills (historical data is preserved as-is).
 

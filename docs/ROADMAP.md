@@ -20,7 +20,7 @@ Rules for using this file:
 - [x] **1.1** Google Sign-In via Firebase Auth. Login page + an auth context/hook (`useAuth()`) that exposes the current user across the app. Logged-out users get redirected to login.
 - [x] **1.2** Firestore data model + security rules for `households` and `households/{id}/members` (per `PROJECT_PLAN.md` §6). Rules should enforce: only members of a household can read/write its bills; only `admin` role can modify the members subcollection.
 - [x] **1.3** Household creation/join flow: first-time login prompts to create a household or accept an invite. Store role (`admin` for creator, assignable later for others).
-- [ ] **1.4** Admin-only household management screen: list members, change role, remove a member/guest. Guests should not be able to see/access this screen at all (not just UI-hidden — enforce in Firestore rules too).
+- [x] **1.4** Admin-only household management screen: list members, change role, remove a member/guest. Guests should not be able to see/access this screen at all (not just UI-hidden — enforce in Firestore rules too).
 
 ## Phase 2 — Bill upload & AI parsing
 

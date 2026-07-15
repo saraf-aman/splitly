@@ -17,6 +17,16 @@ service cloud.firestore {
         get(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // The household's creator is a permanent "super-admin": only they can
+    // demote/remove another admin or touch another admin's role. Regular
+    // admins can promote guests to admin and remove guests, but cannot act
+    // on other admins at all, and nobody (including the creator themself)
+    // can demote or remove the creator's own member doc.
+    function isHouseholdCreator(householdId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/households/$(householdId)).data.createdBy == request.auth.uid;
+    }
+
     match /users/{userId} {
       // Reverse index of uid -> householdId, written by the user themself on
       // create/join so the client can find "which household am I in" right
@@ -31,7 +41,10 @@ service cloud.firestore {
       // as createdBy; the matching member-doc rule below is what actually lets that
       // creator grant themselves the admin role, and only for a household they created.
       allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if isHouseholdAdmin(householdId);
+      allow update: if isHouseholdAdmin(householdId);
+      // Deleting the whole household (wiping all members/bills/data) is
+      // creator-only — the most destructive action in the app.
+      allow delete: if isHouseholdCreator(householdId);
 
       match /members/{memberId} {
         allow read: if isHouseholdMember(householdId);
@@ -45,7 +58,29 @@ service cloud.firestore {
           (memberId == request.auth.uid &&
            request.resource.data.role == 'guest' &&
            exists(/databases/$(database)/documents/households/$(householdId)));
-        allow update, delete: if isHouseholdAdmin(householdId);
+        // The creator's own member doc can never be touched by anyone,
+        // including the creator — they're a permanent super-admin.
+        allow update: if isHouseholdAdmin(householdId) &&
+          memberId != get(/databases/$(database)/documents/households/$(householdId)).data.createdBy &&
+          (
+            isHouseholdCreator(householdId) ||
+            (resource.data.role == 'guest' && request.resource.data.role == 'admin')
+          );
+        allow delete: if isHouseholdAdmin(householdId) &&
+          (
+            // The creator can delete their own member doc — but only as the
+            // last step of tearing down the whole household (see
+            // deleteHousehold() client-side); there's no standalone "leave
+            // household" self-service action exposed for the creator.
+            (memberId == request.auth.uid && isHouseholdCreator(householdId)) ||
+            (
+              memberId != get(/databases/$(database)/documents/households/$(householdId)).data.createdBy &&
+              (
+                isHouseholdCreator(householdId) ||
+                resource.data.role == 'guest'
+              )
+            )
+          );
       }
     }
 
