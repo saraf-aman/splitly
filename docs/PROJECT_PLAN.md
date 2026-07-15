@@ -36,7 +36,7 @@ A guest can alternatively be represented with zero login at all, by another memb
 ## 4. Core user flow
 
 1. **Upload**: Any household member (admin or guest) uploads a photo/screenshot of a receipt.
-2. **AI parse**: The image is sent to the Claude API (vision), which returns structured JSON: line items (name, price), and separately identified tax, tip, service charge, and total.
+2. **AI parse**: The image is sent to the Google Gemini API (vision, free tier), which returns structured JSON: line items (name, price), and separately identified tax, tip, service charge, and total.
 3. **Review/edit**: The uploader sees the parsed draft and can correct/add/remove line items before confirming. Low-confidence items (the AI wasn't sure) are visually flagged for a second look.
 4. **Confirm**: Bill status becomes `open`. All household members get a push notification that a new bill is ready.
 5. **Select**: Each member opens the bill and sees every line item as a row with two controls:
@@ -181,7 +181,7 @@ This ensures no type-broken or lint-failing code ever lands in a commit.
 
 ### Vercel API route timeout: Claude receipt parsing
 
-The Next.js API route that calls Claude vision (Phase 2.2) may need more than Vercel's default 10s timeout for a complex receipt with many line items. `maxDuration` beyond 10s requires the paid Vercel Pro plan — the free Hobby plan caps at 10s. Since the project goal is $0 running cost, design the parsing route to fit inside Hobby's 10s limit (compress/downscale the image before sending, keep the prompt tight) rather than assuming Pro. Revisit at Phase 2.2 if parsing consistently runs long in practice.
+The Next.js API route that calls Gemini vision (Phase 2.2) may need more than Vercel's default 10s timeout for a complex receipt with many line items. `maxDuration` beyond 10s requires the paid Vercel Pro plan — the free Hobby plan caps at 10s. Since the project goal is $0 running cost, design the parsing route to fit inside Hobby's 10s limit (compress/downscale the image before sending, keep the prompt tight) rather than assuming Pro. Revisit at Phase 2.2 if parsing consistently runs long in practice.
 
 ### Push notifications: iOS version requirement confirmed
 

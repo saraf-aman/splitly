@@ -10,6 +10,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@google/genai": "^2.11.0",
     "@serwist/next": "^9.5.11",
     "firebase": "^12.16.0",
     "next": "16.2.10",

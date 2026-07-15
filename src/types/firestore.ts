@@ -25,6 +25,24 @@ export interface Member {
 
 export type BillStatus = "pending_review" | "open" | "settled";
 
+// AI's raw guess at the receipt contents, stored on the bill doc as soon as
+// parsing succeeds. The review screen (Phase 2.3) edits a working copy of
+// this; confirming (Phase 2.4) is what writes the real `items`/`sharedCharges`
+// subcollections — this field itself is never treated as the source of truth.
+export interface ParsedReceiptItem {
+  name: string;
+  price: number; // cents
+  lowConfidence: boolean; // AI parser flagged this for double-checking
+}
+
+export interface ParsedReceipt {
+  items: ParsedReceiptItem[];
+  tax: number | null; // cents
+  tip: number | null; // cents
+  serviceCharge: number | null; // cents
+  total: number | null; // cents
+}
+
 // bills/{billId}
 export interface Bill {
   householdId: string;
@@ -33,6 +51,7 @@ export interface Bill {
   billDate: Timestamp;
   status: BillStatus;
   createdAt: Timestamp;
+  parsedResult: ParsedReceipt;
 }
 
 // bills/{billId}/items/{itemId}

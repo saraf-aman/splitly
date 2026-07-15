@@ -14,7 +14,7 @@ A realtime, mobile-installable (PWA) app for a 3-4 person household to split gro
 - **Database:** Firestore (realtime listeners + offline persistence via `persistentLocalCache`) — realtime sync AND works on flaky mobile connections
 - **File storage:** None. Receipt images are never persisted — uploaded straight from the browser to the parsing API route, sent to Claude, then discarded. Avoids requiring the paid Firebase Blaze plan (Storage requires it as of Oct 2024) and there's no product need to keep the photo after it's parsed.
 - **Push notifications:** Firebase Cloud Messaging (FCM) — confirmed working for all household members (all on iOS 17/18, well above the iOS 16.4 PWA push requirement)
-- **Receipt parsing:** Claude API (vision) called from a Next.js API route — image is sent directly in the request (not stored first), gets back structured JSON (items, prices, tax, tip, service charge, total)
+- **Receipt parsing:** Google Gemini API (vision, free tier — Gemini Flash) called from a Next.js API route — image is sent directly in the request (not stored first), gets back structured JSON (items, prices, tax, tip, service charge, total). Chosen specifically to keep running cost at $0: the free tier's daily request quota comfortably covers a 3-4 person household's bill volume, with no card on file and no per-call billing. Accepted risk: Google could tighten/remove the free tier later, or the quota could be hit under unusually heavy use — revisit if that happens.
 - **Expense export:** Splitwise API (one-tap push of the final split into a Splitwise group)
 - **Commit hooks:** Husky + lint-staged — runs `next lint` + `tsc --noEmit` on staged `.ts`/`.tsx` files; activated automatically on `npm install` via the `prepare` script
 

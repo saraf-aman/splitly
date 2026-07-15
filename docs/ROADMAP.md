@@ -26,7 +26,7 @@ Rules for using this file:
 ## Phase 2 — Bill upload & AI parsing
 
 - [x] **2.1** Bill upload UI: camera capture or file picker. Image is sent directly (not persisted to any storage) to the parsing API route; create a `bills/{id}` doc with status `pending_review` once parsing succeeds.
-- [ ] **2.2** Next.js API route that takes the uploaded image in the request body, calls the Claude API (vision) with a prompt to extract structured JSON (items with name/price, tax, tip, service charge, total). Store the raw parsed result on the bill doc. Image itself is never written to storage/disk — discarded after the API call returns. Keep `maxDuration` and image size in mind to fit Vercel's Hobby-plan 10s function limit (no Storage/Pro plan needed — see CLAUDE.md).
+- [x] **2.2** Next.js API route that takes the uploaded image in the request body, calls the Google Gemini API (vision, free tier) with a prompt to extract structured JSON (items with name/price, tax, tip, service charge, total). Store the raw parsed result on the bill doc. Image itself is never written to storage/disk — discarded after the API call returns. Keep `maxDuration` and image size in mind to fit Vercel's Hobby-plan 10s function limit (no Storage/Pro plan needed — see CLAUDE.md).
 - [ ] **2.3** Review/edit screen: uploader sees parsed items in an editable list (edit name/price, delete, add a missed item), with any AI-flagged low-confidence items visually marked.
 - [ ] **2.4** Confirm action: on confirm, write final `items` and `sharedCharges` subcollections, set bill status to `open`, and (stub for now, wire up real push in Phase 5) trigger a placeholder notification event.
 
