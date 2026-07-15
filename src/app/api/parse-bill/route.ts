@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-flash-latest",
+      model: "gemini-flash-lite-latest",
       contents: [
         {
           role: "user",
