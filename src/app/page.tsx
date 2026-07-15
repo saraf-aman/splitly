@@ -26,6 +26,14 @@ export default function Home() {
           </p>
         </div>
       )}
+      {householdId && (
+        <Link
+          href="/bills/new"
+          className="rounded-full bg-indigo-600 px-6 py-3 font-medium text-white transition-colors hover:bg-indigo-500"
+        >
+          Upload a bill
+        </Link>
+      )}
       {isAdmin && (
         <Link
           href="/household"
