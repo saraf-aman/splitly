@@ -25,10 +25,14 @@ A realtime, mobile-installable (PWA) app for a 3-4 person household to split gro
 2. Read `docs/ROADMAP.md` and find the **first unchecked step**. That is the only thing you should build this session. Do not jump ahead to later phases even if it seems efficient — steps are sized intentionally small so each fits in one focused session.
 3. Only consult `docs/PROJECT_PLAN.md` for the specific section relevant to the step you're building (e.g. if the step is about the data model, read only that section) — don't re-read the whole file every session, it's for reference, not required context.
 4. Build only that one step. Don't scaffold future phases "while you're at it."
-5. When the step is done and working:
+5. Before marking the step done, verify it live — don't rely on `tsc`/`lint`/`next build` passing as proof a UI step actually works:
+   - If the step touches any UI, use the `claude-in-chrome` tools against the user's already-running `npm run dev` instance (check for one first — don't spin up a second one) and screenshot/click through the actual change.
+   - If a screen requires state you can't reach (e.g. a fresh not-yet-onboarded account, a second household member, signing out the user's real session), say so explicitly in the progress entry instead of claiming it was verified — don't skip verification silently.
+   - If the step is backend/logic-only with no UI surface, `tsc`/`lint`/`build` plus a manual read-through is enough — no need to force a browser check.
+6. When the step is done and working:
    - Check off the step in `docs/ROADMAP.md`
    - Append a short entry to `docs/PROGRESS.md` (see template at the top of that file) — what was built, files touched, any decisions/deviations made, anything the next session needs to know
-6. Stop there. The user will open a new chat for the next step to keep context windows small and cheap.
+7. Stop there. The user will open a new chat for the next step to keep context windows small and cheap.
 
 ## Token efficiency conventions
 

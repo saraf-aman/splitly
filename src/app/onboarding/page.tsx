@@ -3,6 +3,11 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { createHousehold, joinHousehold } from "@/lib/household";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export default function OnboardingPage() {
   const { user } = useAuth();
@@ -41,74 +46,86 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-zinc-50 px-6 dark:bg-black">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-background px-6">
       <div className="flex flex-col items-center gap-2 text-center">
-        <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">Welcome to Splitly</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
+        <h1 className="text-heading text-foreground">Welcome to Splitly</h1>
+        <p className="text-body text-muted-foreground">
           Create a new household, or join one with an invite ID.
         </p>
       </div>
 
-      <div className="flex gap-1 rounded-full bg-zinc-200 p-1 dark:bg-zinc-800">
+      <div className="flex gap-1 rounded-full bg-secondary p-1">
         <button
           type="button"
           onClick={() => setMode("create")}
-          className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+          className={cn(
+            "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
             mode === "create"
-              ? "bg-white text-black shadow dark:bg-zinc-950 dark:text-white"
-              : "text-zinc-600 dark:text-zinc-400"
-          }`}
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground"
+          )}
         >
           Create household
         </button>
         <button
           type="button"
           onClick={() => setMode("join")}
-          className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-            mode === "join"
-              ? "bg-white text-black shadow dark:bg-zinc-950 dark:text-white"
-              : "text-zinc-600 dark:text-zinc-400"
-          }`}
+          className={cn(
+            "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+            mode === "join" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+          )}
         >
           Join household
         </button>
       </div>
 
-      {mode === "create" ? (
-        <form onSubmit={handleCreate} className="flex w-full max-w-xs flex-col gap-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Household name"
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-black dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
-          />
-          <button
-            type="submit"
-            disabled={submitting || !name.trim()}
-            className="rounded-full bg-indigo-600 px-6 py-3 font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {submitting ? "Creating..." : "Create household"}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={handleJoin} className="flex w-full max-w-xs flex-col gap-3">
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Household ID"
-            className="rounded-lg border border-zinc-300 px-4 py-2 font-mono text-black dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
-          />
-          <button
-            type="submit"
-            disabled={submitting || !code.trim()}
-            className="rounded-full bg-indigo-600 px-6 py-3 font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {submitting ? "Joining..." : "Join household"}
-          </button>
-        </form>
-      )}
+      <Card className="w-full max-w-xs">
+        <CardContent>
+          {mode === "create" ? (
+            <form onSubmit={handleCreate} className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="household-name">Household name</Label>
+                <Input
+                  id="household-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Apt. 4B"
+                  className="h-11 text-base"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={submitting || !name.trim()}
+                className="h-11 text-base"
+              >
+                {submitting ? "Creating..." : "Create household"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleJoin} className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="household-code">Household ID</Label>
+                <Input
+                  id="household-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Invite ID"
+                  className="h-11 font-mono text-base"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={submitting || !code.trim()}
+                className="h-11 text-base"
+              >
+                {submitting ? "Joining..." : "Join household"}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
