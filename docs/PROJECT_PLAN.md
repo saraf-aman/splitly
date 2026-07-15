@@ -64,7 +64,8 @@ households/{householdId}
 bills/{billId}
   householdId: string
   uploadedBy: userId
-  imageUrl: string             // Firebase Storage path
+  // no imageUrl field — the receipt photo is never persisted. It's sent
+  // directly to the Claude parsing API route and discarded once parsed.
   restaurantOrStoreName: string | null
   billDate: timestamp
   status: "pending_review" | "open" | "settled"
@@ -170,7 +171,7 @@ This ensures no type-broken or lint-failing code ever lands in a commit.
 
 ### Vercel API route timeout: Claude receipt parsing
 
-The Next.js API route that calls Claude vision (Phase 2.2) must export `export const maxDuration = 60` to raise Vercel's timeout from the default 10s to 60s. A complex receipt image with many line items can take 15–30 seconds to parse. Without this, the route will time out silently on larger receipts. Requires Vercel Pro plan for the full 60s; the Hobby plan caps at 10s.
+The Next.js API route that calls Claude vision (Phase 2.2) may need more than Vercel's default 10s timeout for a complex receipt with many line items. `maxDuration` beyond 10s requires the paid Vercel Pro plan — the free Hobby plan caps at 10s. Since the project goal is $0 running cost, design the parsing route to fit inside Hobby's 10s limit (compress/downscale the image before sending, keep the prompt tight) rather than assuming Pro. Revisit at Phase 2.2 if parsing consistently runs long in practice.
 
 ### Push notifications: iOS version requirement confirmed
 
