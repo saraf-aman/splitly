@@ -49,6 +49,10 @@ bin/
 /.next/
 /out/
 
+### Serwist (generated service worker — rebuilt on every `next build`) ###
+/public/sw.js
+/public/sw.js.map
+
 ### Production build ###
 /build
 
