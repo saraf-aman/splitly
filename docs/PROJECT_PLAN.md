@@ -25,8 +25,9 @@ Three-tier hierarchy: **Creator** (the household's original creator — a perman
 | Promote a guest to admin | ✅ | ✅ | ❌ |
 | Remove a guest | ✅ | ✅ | ❌ |
 | Demote or remove an admin | ✅ | ❌ | ❌ |
-| Be demoted or removed (as the creator) | ❌ (nobody can, not even themself) | — | — |
+| Be demoted or removed (as the creator) | ❌ (nobody can, not even themself, *except* as the last step of deleting the whole household) | — | — |
 | Change household settings | ✅ | ✅ | ❌ |
+| Delete the household (wipes all members/bills/data) | ✅ | ❌ | ❌ |
 
 Guests sign in with their own Google account (not a proxy/shared login) so they can interact independently in realtime. Removing a guest revokes future access only — it does not alter their selections on past bills (historical data is preserved as-is).
 

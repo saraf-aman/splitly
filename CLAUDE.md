@@ -40,7 +40,7 @@ A realtime, mobile-installable (PWA) app for a 3-4 person household to split gro
 
 Three-tier hierarchy — **Creator > Admin > Guest**. The creator is the one who originally created the household (`households/{id}.createdBy`), a permanent super-admin; it's not a separate `role` value (a creator's `Member.role` is still `"admin"`). This tier pattern is meant to be reused for other sensitive/critical actions in later phases, not just member management.
 
-- **Creator**: everything an Admin can do, plus can demote/remove other admins. Cannot themselves ever be demoted or removed (enforced in Firestore rules, not just UI) — there's no ownership-transfer feature.
+- **Creator**: everything an Admin can do, plus can demote/remove other admins, plus can delete the entire household (wipes all members/bills/data, requires typing the household name to confirm). Cannot themselves ever be demoted or removed except as the last step of that full household deletion (enforced in Firestore rules, not just UI) — there's no ownership-transfer feature.
 - **Admin**: everything bill-related, plus can promote a guest to admin and remove a guest. Cannot demote or remove another admin (including the creator) — that's creator-only.
 - **Guest** (e.g. a temporary roommate): everything bill-related — upload, review/edit parsed items, select items/shares, view final grid, push to Splitwise. Cannot touch household management screens at all.
 
