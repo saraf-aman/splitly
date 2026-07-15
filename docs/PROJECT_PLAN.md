@@ -94,6 +94,8 @@ Triggers:
 - New bill uploaded and confirmed → notify all household members except the uploader.
 - Reminder nudge → if a member hasn't made any selection on an `open` bill after some threshold (e.g. 24h), send a gentle reminder. (v2 feature, not blocking v1.)
 
+iOS requirement: FCM push via PWA requires iOS 16.4+ and the app installed to the home screen. All household members are on iOS 17/18 — this is confirmed met, no special handling needed.
+
 ## 8. Splitwise integration
 
 - Requires a Splitwise API key (user generates this from their Splitwise account settings — a short one-time step) and the target Splitwise **group name/ID**.
@@ -128,3 +130,52 @@ Triggers:
 - No in-app payments/money movement.
 - No native mobile app — PWA only.
 - No multi-tenant/public product concerns (no need for scalable pricing tiers, admin dashboards for "customers," etc. — this is a household tool for ~3-4 people).
+
+## 11. Technical architecture & tooling decisions
+
+This section records deliberate technical choices and the reasoning behind them. Future sessions should not revisit these without a specific reason.
+
+### PWA library: `@serwist/next` (not `next-pwa`)
+
+`next-pwa` (the `shadowwalker` package) is effectively unmaintained. `@serwist/next` is the actively maintained Workbox-based successor. Key benefit: Workbox auto-generates a typed precache manifest at `next build` time, listing every `_next/static/` asset with its content-hash filename. This replaces the need for any manual cache-busting script (cf. Meridian's `bust.py`). No manual `PRECACHE` arrays to maintain.
+
+### Service worker: Firebase endpoint exclusions (critical for realtime)
+
+The SW must never intercept Firebase traffic. Firestore realtime listeners run over a long-lived HTTP/2 stream; FCM uses its own endpoints. If the SW caches or interferes with these, realtime updates break silently. The following origins must be excluded from all SW `runtimeCaching` strategies:
+- `https://firestore.googleapis.com`
+- `https://firebase.googleapis.com`
+- `https://fcmregistrations.googleapis.com`
+- `https://identitytoolkit.googleapis.com` (Firebase Auth)
+
+Apply these as `NavigationRoute` denylists or `urlPattern` exclusions in the Serwist config.
+
+### Firestore: offline persistence
+
+Enable `persistentLocalCache()` when initialising Firestore (`initializeFirestore` with `localCache: persistentLocalCache()`). This stores Firestore data in IndexedDB so the app degrades gracefully on flaky mobile connections rather than showing empty/broken states. Writes made offline are queued and sync automatically when connectivity resumes. Enable once in `lib/firebase.ts`; no other code changes needed.
+
+### `'use client'` boundary strategy
+
+Next.js App Router server components cannot hold Firestore listeners (listeners require a browser environment). The pattern to follow throughout this codebase:
+- Page files (`app/.../page.tsx`) can be server components for layout/metadata.
+- Any component that uses a Firestore `onSnapshot` listener must be a client component (`'use client'`).
+- Auth context, Firestore hooks, and FCM registration are all client-only — keep them in `components/` or `lib/` with `'use client'` at the top.
+
+### Commit hooks: Husky + lint-staged (not `.githooks/` shell scripts)
+
+Husky's `prepare` script runs automatically on `npm install`, so hooks are active for every developer without a manual `git config` step. lint-staged runs only against staged files (fast). The hook runs:
+1. `next lint --fix` — auto-fix lint issues, fail on errors
+2. `tsc --noEmit` — fail on type errors
+
+This ensures no type-broken or lint-failing code ever lands in a commit.
+
+### Vercel API route timeout: Claude receipt parsing
+
+The Next.js API route that calls Claude vision (Phase 2.2) must export `export const maxDuration = 60` to raise Vercel's timeout from the default 10s to 60s. A complex receipt image with many line items can take 15–30 seconds to parse. Without this, the route will time out silently on larger receipts. Requires Vercel Pro plan for the full 60s; the Hobby plan caps at 10s.
+
+### Push notifications: iOS version requirement confirmed
+
+FCM push notifications require iOS 16.4+ with the PWA installed to the home screen (not running in Safari). All household members are confirmed on iOS 17 or iOS 18 (devices from 2024 or later), so this requirement is met. No fallback needed for older iOS.
+
+### Money: integer cents throughout
+
+All monetary values in Firestore and in calculation functions are stored and handled as **integer cents** (e.g. `$12.50` → `1250`). Never use floats for money. The split calculation module (Phase 4.2) handles rounding remainders to ensure the sum of all per-person totals equals the bill total exactly.

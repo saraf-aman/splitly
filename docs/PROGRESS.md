@@ -14,4 +14,6 @@ Entry template:
 
 ---
 
-*(No steps completed yet — this file will start filling in once Phase 0 begins.)*
+*(No steps completed yet — Phase 0 build not started.)*
+
+**Pre-0.1 note (2026-07-14):** Removed stray IntelliJ Java template files (`src/Main.java`, `splitly.iml`, `.idea/`) that were left over from repo creation — unrelated to the Next.js app, not yet committed. Added a "Git discipline" rule to `CLAUDE.md`: never run `git commit`/`git push` unless explicitly asked in the moment. Next session should start fresh on step **0.1** (Next.js + TypeScript + Tailwind scaffold, folder structure, Husky/lint-staged) — nothing from 0.1 has been built yet.

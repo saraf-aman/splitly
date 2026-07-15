@@ -11,9 +11,9 @@ Rules for using this file:
 
 ## Phase 0 — Project scaffold
 
-- [ ] **0.1** Initialize Next.js (App Router) + TypeScript + Tailwind project. Basic folder structure (`app/`, `components/`, `lib/`, `types/`). Confirm it runs locally with `npm run dev`.
-- [ ] **0.2** Add Firebase client SDK. Create `lib/firebase.ts` with config read from environment variables (`.env.local`, and a `.env.example` with dummy placeholders committed to the repo). Do not hardcode any keys in source.
-- [ ] **0.3** PWA setup: `manifest.json`, app icons (a few sizes), service worker registration, `next-pwa` (or manual equivalent) config. Verify "Add to Home Screen" works on at least one device/browser.
+- [ ] **0.1** Initialize Next.js (App Router) + TypeScript + Tailwind project. Basic folder structure (`app/`, `components/`, `lib/`, `types/`). Set up Husky + lint-staged (`next lint` + `tsc --noEmit` on staged `.ts`/`.tsx` files, activated automatically via `prepare` script on `npm install`). Confirm it runs locally with `npm run dev` and that the pre-commit hook fires on a test commit.
+- [ ] **0.2** Add Firebase client SDK. Create `lib/firebase.ts` with config read from environment variables (`.env.local`, and a `.env.example` with dummy placeholders committed to the repo). Enable Firestore offline persistence (`persistentLocalCache`) at init time. Do not hardcode any keys in source.
+- [ ] **0.3** PWA setup: `manifest.json` (with `display: standalone`, `start_url`, `background_color`, `theme_color`, icons at 192×192 and 512×512 minimum), `@serwist/next` config with Workbox runtime caching. Critically: exclude all Firebase/Firestore/FCM endpoints from SW caching (`firestore.googleapis.com`, `firebase.googleapis.com`, `fcmregistrations.googleapis.com`) so realtime listeners are never intercepted. Verify "Add to Home Screen" prompt appears on iOS Safari and Chrome Android.
 
 ## Phase 1 — Auth & household
 

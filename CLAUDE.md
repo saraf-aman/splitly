@@ -9,13 +9,14 @@ A realtime, mobile-installable (PWA) app for a 3-4 person household to split gro
 ## Tech stack
 
 - **Frontend:** Next.js (App Router) + TypeScript + Tailwind CSS, deployed on Vercel
-- **PWA:** manifest.json + service worker so it installs as a home-screen app on iOS/Android
+- **PWA:** `@serwist/next` (actively maintained Workbox wrapper) — auto-generates precache manifest with content-hashed URLs on every `next build`; no manual cache-busting needed
 - **Auth:** Firebase Authentication (Google Sign-In only)
-- **Database:** Firestore (realtime listeners — this is what makes the multi-user live sync work with zero custom backend)
+- **Database:** Firestore (realtime listeners + offline persistence via `persistentLocalCache`) — realtime sync AND works on flaky mobile connections
 - **File storage:** Firebase Storage (receipt images)
-- **Push notifications:** Firebase Cloud Messaging (FCM)
+- **Push notifications:** Firebase Cloud Messaging (FCM) — confirmed working for all household members (all on iOS 17/18, well above the iOS 16.4 PWA push requirement)
 - **Receipt parsing:** Claude API (vision) called from a Next.js API route — sends the image, gets back structured JSON (items, prices, tax, tip, service charge, total)
 - **Expense export:** Splitwise API (one-tap push of the final split into a Splitwise group)
+- **Commit hooks:** Husky + lint-staged — runs `next lint` + `tsc --noEmit` on staged `.ts`/`.tsx` files; activated automatically on `npm install` via the `prepare` script
 
 ## How to work in this repo (for Claude Code, every session)
 
@@ -39,6 +40,10 @@ A realtime, mobile-installable (PWA) app for a 3-4 person household to split gro
 
 - **Admin** (the 3 core household members): everything, including household management (add/remove members and guests, change roles).
 - **Guest** (e.g. a temporary roommate): everything bill-related — upload, review/edit parsed items, select items/shares, view final grid, push to Splitwise. Cannot touch household management screens.
+
+## Git discipline
+
+- Never run `git commit` or `git push` (or any other action that alters git history/remote state) unless the user explicitly asks for it in that moment. The user commits and pushes themselves. Staging/inspecting (`git status`, `git diff`, `git add` to prep for the user) is fine.
 
 ## Non-goals (explicitly out of scope — don't build these)
 
