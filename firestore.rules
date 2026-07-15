@@ -17,6 +17,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid)).data.role == 'admin';
     }
 
+    match /users/{userId} {
+      // Reverse index of uid -> householdId, written by the user themself on
+      // create/join so the client can find "which household am I in" right
+      // after login without a collection-group query.
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
     match /households/{householdId} {
       allow read: if isHouseholdMember(householdId);
       // Household creation is a two-write bootstrap (household doc + creator's own
@@ -31,7 +38,13 @@ service cloud.firestore {
         allow create: if isHouseholdAdmin(householdId) ||
           (memberId == request.auth.uid &&
            request.resource.data.role == 'admin' &&
-           get(/databases/$(database)/documents/households/$(householdId)).data.createdBy == request.auth.uid);
+           get(/databases/$(database)/documents/households/$(householdId)).data.createdBy == request.auth.uid) ||
+          // Self-join via invite: anyone who knows the household ID can add
+          // themselves as a guest, as long as the household actually exists.
+          // Role changes beyond that require an admin (see update/delete below).
+          (memberId == request.auth.uid &&
+           request.resource.data.role == 'guest' &&
+           exists(/databases/$(database)/documents/households/$(householdId)));
         allow update, delete: if isHouseholdAdmin(householdId);
       }
     }

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthGate } from "@/components/AuthGate";
+import { HouseholdGate } from "@/components/HouseholdGate";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
@@ -48,7 +49,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <AuthGate>{children}</AuthGate>
+          <AuthGate>
+            <HouseholdGate>{children}</HouseholdGate>
+          </AuthGate>
         </AuthProvider>
       </body>
     </html>

@@ -51,6 +51,9 @@ A guest can alternatively be represented with zero login at all, by another memb
 ## 6. Data model (Firestore)
 
 ```
+users/{userId}               // reverse index: which household this signed-in user belongs to
+  householdId: string
+
 households/{householdId}
   name: string
   createdAt: timestamp
