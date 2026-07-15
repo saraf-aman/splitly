@@ -37,7 +37,7 @@ Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.m
 - [x] **3.3** Restyle auth & onboarding screens (`/login`, `/onboarding`) against the new design system and primitives.
 - [x] **3.4** Restyle the home page and household management screen (`/household`) against the new shell/primitives.
 - [x] **3.5** Restyle the bill upload screen (`/bills/new`) against the new shell/primitives.
-- [ ] **3.6** Replace the placeholder solid-color app icons (`public/icon-192.png`, `icon-512.png`) with the amber "S"-wordmark icon per `PROJECT_PLAN.md` §12, and update `theme_color`/`themeColor` in `public/manifest.json` and `src/app/layout.tsx` from indigo (`#4f46e5`) to amber (`#C6893A`).
+- [x] **3.6** Replace the placeholder solid-color app icons (`public/icon-192.png`, `icon-512.png`) with the amber "S"-wordmark icon per `PROJECT_PLAN.md` §12, and update `theme_color`/`themeColor` in `public/manifest.json` and `src/app/layout.tsx` from indigo (`#4f46e5`) to amber (`#C6893A`).
 
 ## Phase 4 — Bill review & confirm
 
