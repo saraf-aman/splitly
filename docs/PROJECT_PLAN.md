@@ -191,14 +191,30 @@ Everything built through Phase 2.2 (login, onboarding, household management, bil
 
 **Component library: shadcn/ui** (Radix UI primitives + Tailwind, code copied into the repo rather than an opaque npm dependency). Chosen over a hand-rolled Tailwind design system because it gives accessible, consistent primitives (buttons, inputs, cards, dialogs, nav) fast, without hand-maintaining a11y behavior (focus traps, ARIA on custom dropdowns/selects) that a small household-app project has no reason to build from scratch. It layers directly on the existing Tailwind v4 setup — no conflicting styling approach to reconcile.
 
-**Visual identity — kept, not reinvented:**
-- **Accent color**: indigo (already the color used throughout every existing screen, and already set as the PWA's `theme-color` in `layout.tsx`/manifest). Phase 3 formalizes it into a proper shadcn theme token rather than hardcoded `bg-indigo-600` classes scattered per component, but does not change the actual hue — no reason to invalidate the existing icon/manifest theme-color choice.
+**Visual identity — revised this session (superseding the original indigo/dual-mode sketch above):**
+
+- **Light mode only, no dark mode.** Explicit user call — drop the existing Tailwind `dark:` classes and `prefers-color-scheme` handling entirely rather than reconciling them into the shadcn theme. One visual world, not two.
+- **Accent color: amber**, `#C6893A`, with a soft tint `#FAF0E0` for chips/badges/callout backgrounds. Replaces the original indigo (`#4f46e5`) — indigo read as too intense/"blue" on screen after seeing it applied. This means `public/manifest.json` `theme_color` and the `themeColor` in `src/app/layout.tsx`'s `viewport` export both need updating from `#4f46e5` to `#C6893A` as part of Phase 3 (currently still indigo, not yet changed).
+- **Full light-mode token set** (background/surface/text, not just the accent):
+  | Token | Hex | Use |
+  |---|---|---|
+  | `background` | `#FAFAF9` | page background (warm paper-white, not stark white) |
+  | `surface` | `#FFFFFF` | cards |
+  | `ink` | `#1A1A1F` | primary text |
+  | `muted` | `#6B7280` | secondary/caption text |
+  | `accent` | `#C6893A` | primary buttons, active tab, selected states — used sparingly, not as a background fill |
+  | `accent-soft` | `#FAF0E0` | chip/badge backgrounds, "your share" callout background |
+  | `border` | `#E5E7EB` | hairlines, card borders |
+  | `success` | `#16A34A` | confirmed/settled states only (semantic, not the brand accent) |
 - **Typography**: Geist Sans/Mono (already the `create-next-app` default, already wired into `layout.tsx`). Phase 3 adds a real type scale (display/heading/body/caption sizes with consistent line-height/weight) instead of ad hoc `text-sm`/`text-2xl` choices per page.
-- **Light/dark mode**: both continue to be supported (already partially done via Tailwind `dark:` classes and `prefers-color-scheme`) — Phase 3 makes this consistent across every screen via the shadcn theme rather than per-component dark variants.
+- **Signature treatment — money in mono.** Every monetary amount and quantity (item prices, shares, totals) renders in **Geist Mono with tabular figures, right-aligned** — distinct from Geist Sans used for all other UI text. Reads as a ledger/receipt rather than a generic dashboard; tabular figures also keep columns aligned in the future selection grid (Phase 5/6). Item lists get a **dashed divider** above the tax/tip/total rows, echoing a paper receipt's cut line — the one deliberate skeuomorphic nod, used once, not repeated elsewhere.
+- **App icon**: replace the current placeholder solid-color PNGs (`public/icon-192.png`, `icon-512.png`, from Phase 0.3) with an amber (`#C6893A`) rounded-square icon bearing a bold white/paper-white "S" wordmark, at both 192×192 and 512×512.
 
-**Navigation shell**: a persistent mobile-first bottom tab bar (Home / Bills / Household), since this is a PWA primarily installed to a phone home screen — replacing today's inline, ad hoc links (e.g. "Manage household" as a plain text link on the home page). Applies to every authenticated route; the login/onboarding screens (pre-household) stay shell-less since there's nothing to navigate to yet.
+**Navigation shell**: a persistent mobile-first bottom tab bar (Home / Bills / Household), since this is a PWA primarily installed to a phone home screen — replacing today's inline, ad hoc links (e.g. "Manage household" as a plain text link on the home page). Each tab gets its own line icon, not a generic placeholder block: **house** (Home), **receipt** (Bills — rectangle with a jagged/torn bottom edge and a few horizontal lines, matching the ledger motif), **people** (Household — two overlapping figures). Active tab tinted amber (icon + label), inactive tabs muted gray. Applies to every authenticated route; the login/onboarding screens (pre-household) stay shell-less since there's nothing to navigate to yet.
 
-**Phase 3 build order** (see `ROADMAP.md` for the exact steps): design tokens + base primitives first (no visible page changes), then the shared app shell, then restyle each existing screen against it (auth/onboarding → home/household → bill upload).
+A confirmed visual reference (mockups reviewed and approved this session) exists as a Claude Artifact; ask the user if it's still needed since it's not checked into the repo.
+
+**Phase 3 build order** (see `ROADMAP.md` for the exact steps): design tokens + base primitives first (no visible page changes), then the shared app shell (with the tab icons above), then restyle each existing screen against it (auth/onboarding → home/household → bill upload), then swap the app icon PNGs.
 
 ### Push notifications: iOS version requirement confirmed
 

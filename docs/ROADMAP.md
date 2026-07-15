@@ -32,11 +32,12 @@ Rules for using this file:
 
 Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.md` §12 for the full design decision (component library, visual identity, navigation shell). Restyles what already exists; no new data features land in this phase.
 
-- [ ] **3.1** Design system foundation: install/configure shadcn/ui on the existing Tailwind v4 setup. Define theme tokens (indigo accent, Geist type scale, spacing/radius) as real shadcn theme config, not hardcoded per-component classes. Add base primitives (Button, Input, Label, Card) — no visible page changes yet.
-- [ ] **3.2** Shared app shell: persistent mobile-first bottom tab nav (Home / Bills / Household) for authenticated routes, wired into the root layout. Login/onboarding stay shell-less.
+- [ ] **3.1** Design system foundation: install/configure shadcn/ui on the existing Tailwind v4 setup, light mode only (remove existing `dark:`/`prefers-color-scheme` handling). Define theme tokens per `PROJECT_PLAN.md` §12 — amber accent (`#C6893A`)/soft tint, background/surface/ink/muted/border/success, Geist Sans for UI text + Geist Mono w/ tabular figures for all money/quantity values — as real shadcn theme config, not hardcoded per-component classes. Add base primitives (Button, Input, Label, Card) — no visible page changes yet.
+- [ ] **3.2** Shared app shell: persistent mobile-first bottom tab nav (Home / Bills / Household) for authenticated routes, wired into the root layout, each tab with its own line icon (house / receipt / people per `PROJECT_PLAN.md` §12) instead of a text-only or placeholder-block tab. Login/onboarding stay shell-less.
 - [ ] **3.3** Restyle auth & onboarding screens (`/login`, `/onboarding`) against the new design system and primitives.
 - [ ] **3.4** Restyle the home page and household management screen (`/household`) against the new shell/primitives.
 - [ ] **3.5** Restyle the bill upload screen (`/bills/new`) against the new shell/primitives.
+- [ ] **3.6** Replace the placeholder solid-color app icons (`public/icon-192.png`, `icon-512.png`) with the amber "S"-wordmark icon per `PROJECT_PLAN.md` §12, and update `theme_color`/`themeColor` in `public/manifest.json` and `src/app/layout.tsx` from indigo (`#4f46e5`) to amber (`#C6893A`).
 
 ## Phase 4 — Bill review & confirm
 
