@@ -27,41 +27,54 @@ Rules for using this file:
 
 - [x] **2.1** Bill upload UI: camera capture or file picker. Image is sent directly (not persisted to any storage) to the parsing API route; create a `bills/{id}` doc with status `pending_review` once parsing succeeds.
 - [x] **2.2** Next.js API route that takes the uploaded image in the request body, calls the Google Gemini API (vision, free tier) with a prompt to extract structured JSON (items with name/price, tax, tip, service charge, total). Store the raw parsed result on the bill doc. Image itself is never written to storage/disk — discarded after the API call returns. Keep `maxDuration` and image size in mind to fit Vercel's Hobby-plan 10s function limit (no Storage/Pro plan needed — see CLAUDE.md).
-- [ ] **2.3** Review/edit screen: uploader sees parsed items in an editable list (edit name/price, delete, add a missed item), with any AI-flagged low-confidence items visually marked.
-- [ ] **2.4** Confirm action: on confirm, write final `items` and `sharedCharges` subcollections, set bill status to `open`, and (stub for now, wire up real push in Phase 5) trigger a placeholder notification event.
 
-## Phase 3 — Realtime selection screen
+## Phase 3 — UI design system & modernization
 
-- [ ] **3.1** Item list UI with a realtime Firestore listener: checkbox column + shares column per item, default `included: true, shares: 1`.
-- [ ] **3.2** Shared charges (tax/tip/service charge) rendered as locked, always-checked rows in the same screen — visually distinct from editable items, no controls to change them.
-- [ ] **3.3** Wire up writes: toggling a checkbox or changing a share count for the current user updates their `selections` map on that item in Firestore, and every other open client sees it update live.
-- [ ] **3.4** Simple per-user "done" indicator (e.g. a "confirm my selections" button) so others can see who's finished vs still deciding — informational only, doesn't block others from viewing/editing their own.
+Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.md` §12 for the full design decision (component library, visual identity, navigation shell). Restyles what already exists; no new data features land in this phase.
 
-## Phase 4 — Final grid & calculations
+- [ ] **3.1** Design system foundation: install/configure shadcn/ui on the existing Tailwind v4 setup. Define theme tokens (indigo accent, Geist type scale, spacing/radius) as real shadcn theme config, not hardcoded per-component classes. Add base primitives (Button, Input, Label, Card) — no visible page changes yet.
+- [ ] **3.2** Shared app shell: persistent mobile-first bottom tab nav (Home / Bills / Household) for authenticated routes, wired into the root layout. Login/onboarding stay shell-less.
+- [ ] **3.3** Restyle auth & onboarding screens (`/login`, `/onboarding`) against the new design system and primitives.
+- [ ] **3.4** Restyle the home page and household management screen (`/household`) against the new shell/primitives.
+- [ ] **3.5** Restyle the bill upload screen (`/bills/new`) against the new shell/primitives.
 
-- [ ] **4.1** Grid UI: items (rows) × members (columns), showing each person's share count per item, `-` for not-included.
-- [ ] **4.2** Split calculation module (pure function, unit-testable): item costs divided by shares, tax/tip/service equally split, correct cent-accurate rounding (per §5 of PROJECT_PLAN.md). Write a few test cases including an uneven-split example.
-- [ ] **4.3** Final per-person total summary displayed below the grid, visible to anyone who has interacted with the bill.
+## Phase 4 — Bill review & confirm
 
-## Phase 5 — Notifications
+- [ ] **4.1** Review/edit screen: uploader sees parsed items in an editable list (edit name/price, delete, add a missed item), with any AI-flagged low-confidence items visually marked.
+- [ ] **4.2** Confirm action: on confirm, write final `items` and `sharedCharges` subcollections, set bill status to `open`, and (stub for now, wire up real push in Phase 7) trigger a placeholder notification event.
 
-- [ ] **5.1** FCM setup: request notification permission, register device token, store token(s) on the member doc.
-- [ ] **5.2** Trigger a push notification (Cloud Function or API route) when a bill moves from `pending_review` → `open`, to all household members except the uploader.
+## Phase 5 — Realtime selection screen
 
-## Phase 6 — History & dashboard
+- [ ] **5.1** Item list UI with a realtime Firestore listener: checkbox column + shares column per item, default `included: true, shares: 1`.
+- [ ] **5.2** Shared charges (tax/tip/service charge) rendered as locked, always-checked rows in the same screen — visually distinct from editable items, no controls to change them.
+- [ ] **5.3** Wire up writes: toggling a checkbox or changing a share count for the current user updates their `selections` map on that item in Firestore, and every other open client sees it update live.
+- [ ] **5.4** Simple per-user "done" indicator (e.g. a "confirm my selections" button) so others can see who's finished vs still deciding — informational only, doesn't block others from viewing/editing their own.
 
-- [ ] **6.1** Home dashboard: list of bills needing the current user's input (no selection made yet on an `open` bill), plus quick stats (e.g. "2 bills pending").
-- [ ] **6.2** Bill history view limited to the last 2 weeks, with the older-than-2-weeks bills simply excluded from the default query (no need to delete data unless storage becomes a concern later).
+## Phase 6 — Final grid & calculations
 
-## Phase 7 — Splitwise integration
+- [ ] **6.1** Grid UI: items (rows) × members (columns), showing each person's share count per item, `-` for not-included.
+- [ ] **6.2** Split calculation module (pure function, unit-testable): item costs divided by shares, tax/tip/service equally split, correct cent-accurate rounding (per §5 of PROJECT_PLAN.md). Write a few test cases including an uneven-split example.
+- [ ] **6.3** Final per-person total summary displayed below the grid, visible to anyone who has interacted with the bill.
 
-- [ ] **7.1** Settings screen to connect a Splitwise API key + select/enter the target group.
-- [ ] **7.2** "Push to Splitwise" button on the final grid screen that sends the computed per-person totals as an expense to the connected group.
+## Phase 7 — Notifications
 
-## Phase 8 — Polish & v2 features
+- [ ] **7.1** FCM setup: request notification permission, register device token, store token(s) on the member doc.
+- [ ] **7.2** Trigger a push notification (Cloud Function or API route) when a bill moves from `pending_review` → `open`, to all household members except the uploader.
 
-- [ ] **8.1** Manual fallback entry: skip AI parsing entirely and type items directly.
-- [ ] **8.2** Reminder nudges for members who haven't responded to an open bill after a set time.
-- [ ] **8.3** Smart defaults: auto-uncheck items a given user has consistently opted out of historically.
-- [ ] **8.4** Per-bill notes field (e.g. "I'm paying for the wine separately, don't include me").
-- [ ] **8.5** General mobile polish pass, offline/error state handling, loading states.
+## Phase 8 — History & dashboard
+
+- [ ] **8.1** Home dashboard: list of bills needing the current user's input (no selection made yet on an `open` bill), plus quick stats (e.g. "2 bills pending").
+- [ ] **8.2** Bill history view limited to the last 2 weeks, with the older-than-2-weeks bills simply excluded from the default query (no need to delete data unless storage becomes a concern later).
+
+## Phase 9 — Splitwise integration
+
+- [ ] **9.1** Settings screen to connect a Splitwise API key + select/enter the target group.
+- [ ] **9.2** "Push to Splitwise" button on the final grid screen that sends the computed per-person totals as an expense to the connected group.
+
+## Phase 10 — Polish & v2 features
+
+- [ ] **10.1** Manual fallback entry: skip AI parsing entirely and type items directly.
+- [ ] **10.2** Reminder nudges for members who haven't responded to an open bill after a set time.
+- [ ] **10.3** Smart defaults: auto-uncheck items a given user has consistently opted out of historically.
+- [ ] **10.4** Per-bill notes field (e.g. "I'm paying for the wine separately, don't include me").
+- [ ] **10.5** General mobile polish pass, offline/error state handling, loading states.

@@ -183,6 +183,23 @@ This ensures no type-broken or lint-failing code ever lands in a commit.
 
 The Next.js API route that calls Gemini vision (Phase 2.2) may need more than Vercel's default 10s timeout for a complex receipt with many line items. `maxDuration` beyond 10s requires the paid Vercel Pro plan — the free Hobby plan caps at 10s. Since the project goal is $0 running cost, design the parsing route to fit inside Hobby's 10s limit (compress/downscale the image before sending, keep the prompt tight) rather than assuming Pro. Revisit at Phase 2.2 if parsing consistently runs long in practice.
 
+## 12. UI design system (Phase 3)
+
+Everything built through Phase 2.2 (login, onboarding, household management, bill upload) is functional scaffolding, not final visual design — plain Tailwind utility classes with no shared component layer, no real typography scale, no cohesive navigation shell. Phase 3 is a dedicated pass to define and apply a real design system **before** any further feature work, so every screen built from Phase 4 onward (starting with the review/edit screen, originally 2.3) is built against a real UI standard from day one instead of retrofitting polish at the very end (the old plan deferred all of this to a "polish" step in the last phase — moved up deliberately per user request).
+
+**Scope is visual/structural only, not new data features.** No bill-listing, history, or dashboard *data* gets pulled forward — that stays in its originally-planned phase. Phase 3 restyles the screens and navigation that already exist today; later phases keep adding features, just using the components/shell this phase establishes.
+
+**Component library: shadcn/ui** (Radix UI primitives + Tailwind, code copied into the repo rather than an opaque npm dependency). Chosen over a hand-rolled Tailwind design system because it gives accessible, consistent primitives (buttons, inputs, cards, dialogs, nav) fast, without hand-maintaining a11y behavior (focus traps, ARIA on custom dropdowns/selects) that a small household-app project has no reason to build from scratch. It layers directly on the existing Tailwind v4 setup — no conflicting styling approach to reconcile.
+
+**Visual identity — kept, not reinvented:**
+- **Accent color**: indigo (already the color used throughout every existing screen, and already set as the PWA's `theme-color` in `layout.tsx`/manifest). Phase 3 formalizes it into a proper shadcn theme token rather than hardcoded `bg-indigo-600` classes scattered per component, but does not change the actual hue — no reason to invalidate the existing icon/manifest theme-color choice.
+- **Typography**: Geist Sans/Mono (already the `create-next-app` default, already wired into `layout.tsx`). Phase 3 adds a real type scale (display/heading/body/caption sizes with consistent line-height/weight) instead of ad hoc `text-sm`/`text-2xl` choices per page.
+- **Light/dark mode**: both continue to be supported (already partially done via Tailwind `dark:` classes and `prefers-color-scheme`) — Phase 3 makes this consistent across every screen via the shadcn theme rather than per-component dark variants.
+
+**Navigation shell**: a persistent mobile-first bottom tab bar (Home / Bills / Household), since this is a PWA primarily installed to a phone home screen — replacing today's inline, ad hoc links (e.g. "Manage household" as a plain text link on the home page). Applies to every authenticated route; the login/onboarding screens (pre-household) stay shell-less since there's nothing to navigate to yet.
+
+**Phase 3 build order** (see `ROADMAP.md` for the exact steps): design tokens + base primitives first (no visible page changes), then the shared app shell, then restyle each existing screen against it (auth/onboarding → home/household → bill upload).
+
 ### Push notifications: iOS version requirement confirmed
 
 FCM push notifications require iOS 16.4+ with the PWA installed to the home screen (not running in Safari). All household members are confirmed on iOS 17 or iOS 18 (devices from 2024 or later), so this requirement is met. No fallback needed for older iOS.
