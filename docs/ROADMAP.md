@@ -1,0 +1,66 @@
+# Roadmap — Build one step at a time
+
+Rules for using this file:
+- Work top to bottom. Always pick the **first unchecked step**.
+- Each step is sized to be doable (and reviewable by the human) in a single focused session.
+- Check a box (`[x]`) only once the step is actually working, not just written.
+- After finishing a step, add an entry to `docs/PROGRESS.md` before ending the session.
+- If a step turns out to be too big once you're in it, it's fine to split it further and update this file — just note that in PROGRESS.md.
+
+---
+
+## Phase 0 — Project scaffold
+
+- [ ] **0.1** Initialize Next.js (App Router) + TypeScript + Tailwind project. Basic folder structure (`app/`, `components/`, `lib/`, `types/`). Confirm it runs locally with `npm run dev`.
+- [ ] **0.2** Add Firebase client SDK. Create `lib/firebase.ts` with config read from environment variables (`.env.local`, and a `.env.example` with dummy placeholders committed to the repo). Do not hardcode any keys in source.
+- [ ] **0.3** PWA setup: `manifest.json`, app icons (a few sizes), service worker registration, `next-pwa` (or manual equivalent) config. Verify "Add to Home Screen" works on at least one device/browser.
+
+## Phase 1 — Auth & household
+
+- [ ] **1.1** Google Sign-In via Firebase Auth. Login page + an auth context/hook (`useAuth()`) that exposes the current user across the app. Logged-out users get redirected to login.
+- [ ] **1.2** Firestore data model + security rules for `households` and `households/{id}/members` (per `PROJECT_PLAN.md` §6). Rules should enforce: only members of a household can read/write its bills; only `admin` role can modify the members subcollection.
+- [ ] **1.3** Household creation/join flow: first-time login prompts to create a household or accept an invite. Store role (`admin` for creator, assignable later for others).
+- [ ] **1.4** Admin-only household management screen: list members, change role, remove a member/guest. Guests should not be able to see/access this screen at all (not just UI-hidden — enforce in Firestore rules too).
+
+## Phase 2 — Bill upload & AI parsing
+
+- [ ] **2.1** Bill upload UI: camera capture or file picker, upload image to Firebase Storage, create a `bills/{id}` doc with status `pending_review`.
+- [ ] **2.2** Next.js API route that takes the uploaded image, calls the Claude API (vision) with a prompt to extract structured JSON (items with name/price, tax, tip, service charge, total). Store the raw parsed result on the bill doc.
+- [ ] **2.3** Review/edit screen: uploader sees parsed items in an editable list (edit name/price, delete, add a missed item), with any AI-flagged low-confidence items visually marked.
+- [ ] **2.4** Confirm action: on confirm, write final `items` and `sharedCharges` subcollections, set bill status to `open`, and (stub for now, wire up real push in Phase 5) trigger a placeholder notification event.
+
+## Phase 3 — Realtime selection screen
+
+- [ ] **3.1** Item list UI with a realtime Firestore listener: checkbox column + shares column per item, default `included: true, shares: 1`.
+- [ ] **3.2** Shared charges (tax/tip/service charge) rendered as locked, always-checked rows in the same screen — visually distinct from editable items, no controls to change them.
+- [ ] **3.3** Wire up writes: toggling a checkbox or changing a share count for the current user updates their `selections` map on that item in Firestore, and every other open client sees it update live.
+- [ ] **3.4** Simple per-user "done" indicator (e.g. a "confirm my selections" button) so others can see who's finished vs still deciding — informational only, doesn't block others from viewing/editing their own.
+
+## Phase 4 — Final grid & calculations
+
+- [ ] **4.1** Grid UI: items (rows) × members (columns), showing each person's share count per item, `-` for not-included.
+- [ ] **4.2** Split calculation module (pure function, unit-testable): item costs divided by shares, tax/tip/service equally split, correct cent-accurate rounding (per §5 of PROJECT_PLAN.md). Write a few test cases including an uneven-split example.
+- [ ] **4.3** Final per-person total summary displayed below the grid, visible to anyone who has interacted with the bill.
+
+## Phase 5 — Notifications
+
+- [ ] **5.1** FCM setup: request notification permission, register device token, store token(s) on the member doc.
+- [ ] **5.2** Trigger a push notification (Cloud Function or API route) when a bill moves from `pending_review` → `open`, to all household members except the uploader.
+
+## Phase 6 — History & dashboard
+
+- [ ] **6.1** Home dashboard: list of bills needing the current user's input (no selection made yet on an `open` bill), plus quick stats (e.g. "2 bills pending").
+- [ ] **6.2** Bill history view limited to the last 2 weeks, with the older-than-2-weeks bills simply excluded from the default query (no need to delete data unless storage becomes a concern later).
+
+## Phase 7 — Splitwise integration
+
+- [ ] **7.1** Settings screen to connect a Splitwise API key + select/enter the target group.
+- [ ] **7.2** "Push to Splitwise" button on the final grid screen that sends the computed per-person totals as an expense to the connected group.
+
+## Phase 8 — Polish & v2 features
+
+- [ ] **8.1** Manual fallback entry: skip AI parsing entirely and type items directly.
+- [ ] **8.2** Reminder nudges for members who haven't responded to an open bill after a set time.
+- [ ] **8.3** Smart defaults: auto-uncheck items a given user has consistently opted out of historically.
+- [ ] **8.4** Per-bill notes field (e.g. "I'm paying for the wine separately, don't include me").
+- [ ] **8.5** General mobile polish pass, offline/error state handling, loading states.
