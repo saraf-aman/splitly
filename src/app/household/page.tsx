@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   deleteHousehold,
@@ -12,6 +13,18 @@ import {
   useUserHousehold,
 } from "@/lib/household";
 import type { Role } from "@/types/firestore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function HouseholdManagePage() {
   const { user } = useAuth();
@@ -24,8 +37,8 @@ export default function HouseholdManagePage() {
 
   if (loading || !householdId || !household) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
+      <div className="flex flex-1 items-center justify-center bg-background">
+        <p className="text-body text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -35,9 +48,9 @@ export default function HouseholdManagePage() {
 
   if (!me || me.role !== "admin") {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6">
-        <p className="text-black dark:text-zinc-50">Only admins can manage the household.</p>
-        <Link href="/" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-background px-6">
+        <p className="text-body text-foreground">Only admins can manage the household.</p>
+        <Link href="/" className="text-sm text-primary hover:underline">
           Back home
         </Link>
       </div>
@@ -72,10 +85,11 @@ export default function HouseholdManagePage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 bg-background px-6 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-medium text-black dark:text-zinc-50">Manage household</h1>
-        <Link href="/" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+        <h1 className="text-heading text-foreground">Manage household</h1>
+        <Link href="/" className="flex items-center gap-1 text-sm text-primary hover:underline">
+          <ChevronLeft className="size-4" />
           Back
         </Link>
       </div>
@@ -90,68 +104,76 @@ export default function HouseholdManagePage() {
           const disabled = busyId === member.id;
 
           return (
-            <li
-              key={member.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800"
-            >
-              <span className="text-sm font-medium text-black dark:text-zinc-50">
-                {member.displayName || "Unnamed"}
-                {isSelf && <span className="text-zinc-500"> (you)</span>}
-              </span>
+            <Card key={member.id} size="sm">
+              <CardContent className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-foreground">
+                  {member.displayName || "Unnamed"}
+                  {isSelf && <span className="text-muted-foreground"> (you)</span>}
+                </span>
 
-              {canEdit ? (
-                <div className="flex items-center gap-2">
-                  <select
-                    value={member.role}
-                    disabled={disabled}
-                    onChange={(e) => handleRoleChange(member.id, e.target.value as Role)}
-                    className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm text-black disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-50"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="guest">Guest</option>
-                  </select>
-                  <button
-                    onClick={() => handleRemove(member.id)}
-                    disabled={disabled}
-                    className="rounded border border-red-300 px-2 py-1 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <span className="text-sm text-zinc-500">{isTargetCreator ? "Owner" : "Admin"}</span>
-              )}
-            </li>
+                {canEdit ? (
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={member.role}
+                      disabled={disabled}
+                      onValueChange={(value) => handleRoleChange(member.id, value as Role)}
+                    >
+                      <SelectTrigger size="sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="guest">Guest</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={disabled}
+                      onClick={() => handleRemove(member.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <Badge variant="outline">{isTargetCreator ? "Owner" : "Admin"}</Badge>
+                )}
+              </CardContent>
+            </Card>
           );
         })}
       </ul>
 
       {isCreator && (
-        <div className="mt-6 flex flex-col gap-3 rounded-lg border border-red-300 p-4 dark:border-red-900">
-          <div>
-            <h2 className="text-sm font-medium text-red-600 dark:text-red-400">Danger zone</h2>
-            <p className="text-xs text-zinc-500">
-              Permanently deletes {household.name} — every member, bill, and item. This cannot be
-              undone.
-            </p>
-          </div>
-          <label className="flex flex-col gap-1 text-xs text-zinc-500">
-            Type <span className="font-mono">{household.name}</span> to confirm
-            <input
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              disabled={deleting}
-              className="rounded border border-zinc-300 bg-transparent px-2 py-1 text-sm text-black disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-50"
-            />
-          </label>
-          <button
-            onClick={handleDeleteHousehold}
-            disabled={deleting || confirmText !== household.name}
-            className="self-start rounded border border-red-600 bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-700 dark:border-red-700"
-          >
-            {deleting ? "Deleting..." : "Delete household forever"}
-          </button>
-        </div>
+        <Card className="mt-6 ring-destructive/30">
+          <CardContent className="flex flex-col gap-3">
+            <div>
+              <h2 className="text-sm font-medium text-destructive">Danger zone</h2>
+              <p className="text-caption text-muted-foreground">
+                Permanently deletes {household.name} — every member, bill, and item. This cannot
+                be undone.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="confirm-household-name" className="text-caption text-muted-foreground">
+                Type <span className="font-money">{household.name}</span> to confirm
+              </Label>
+              <Input
+                id="confirm-household-name"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                disabled={deleting}
+              />
+            </div>
+            <Button
+              className="self-start bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleting || confirmText !== household.name}
+              onClick={handleDeleteHousehold}
+            >
+              {deleting ? "Deleting..." : "Delete household forever"}
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -2,9 +2,12 @@
 
 import { signOut } from "firebase/auth";
 import Link from "next/link";
+import { Receipt, Settings } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useHousehold, useMembers, useUserHousehold } from "@/lib/household";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function Home() {
   const { user } = useAuth();
@@ -14,40 +17,47 @@ export default function Home() {
   const isAdmin = members.find((m) => m.id === user?.uid)?.role === "admin";
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-50 px-6 dark:bg-black">
-      <p className="text-black dark:text-zinc-50">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-background px-6">
+      <p className="text-body text-muted-foreground">
         Signed in as {user?.displayName ?? user?.email}
       </p>
+
       {household && (
-        <div className="flex flex-col items-center gap-1 text-center">
-          <p className="text-lg font-medium text-black dark:text-zinc-50">{household.name}</p>
-          <p className="text-xs text-zinc-500">
-            Invite ID: <span className="font-mono">{household.id}</span>
-          </p>
-        </div>
+        <Card className="w-full max-w-sm">
+          <CardContent className="flex flex-col items-center gap-1 py-2 text-center">
+            <p className="text-heading text-foreground">{household.name}</p>
+            <p className="text-caption text-muted-foreground">
+              Invite ID: <span className="font-money">{household.id}</span>
+            </p>
+          </CardContent>
+        </Card>
       )}
+
       {householdId && (
-        <Link
-          href="/bills/new"
-          className="rounded-full bg-indigo-600 px-6 py-3 font-medium text-white transition-colors hover:bg-indigo-500"
+        <Button
+          size="lg"
+          className="h-12 px-8 text-base"
+          nativeButton={false}
+          render={<Link href="/bills/new" />}
         >
+          <Receipt />
           Upload a bill
-        </Link>
+        </Button>
       )}
+
       {isAdmin && (
         <Link
           href="/household"
-          className="text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+          className="flex items-center gap-1.5 text-sm text-primary hover:underline"
         >
+          <Settings className="size-4" />
           Manage household
         </Link>
       )}
-      <button
-        onClick={() => signOut(auth)}
-        className="rounded-full border border-zinc-300 px-5 py-2 text-sm font-medium text-black transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
-      >
+
+      <Button variant="outline" onClick={() => signOut(auth)}>
         Sign out
-      </button>
+      </Button>
     </div>
   );
 }
