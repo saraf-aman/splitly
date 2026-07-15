@@ -54,6 +54,7 @@ A guest can alternatively be represented with zero login at all, by another memb
 households/{householdId}
   name: string
   createdAt: timestamp
+  createdBy: userId          // lets security rules bootstrap the creator's own admin member doc
   members/{userId}
     displayName: string
     photoUrl: string
