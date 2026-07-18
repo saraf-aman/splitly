@@ -31,8 +31,8 @@ export default function NewBillPage() {
     setError(null);
     try {
       const parsed = await parseBillImage(file);
-      await createBill(user, householdId, parsed);
-      router.push("/");
+      const billId = await createBill(user, householdId, parsed);
+      router.push(`/bills/${billId}/review`);
     } catch {
       setError("Couldn't parse that receipt. Please try again.");
     } finally {
