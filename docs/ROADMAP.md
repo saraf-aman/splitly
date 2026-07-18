@@ -54,7 +54,7 @@ Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.m
 
 ## Phase 6 — Final grid & calculations
 
-- [ ] **6.1** Grid UI: items (rows) × members (columns). Always accessible — no gate on confirmation status. Visual design:
+- [x] **6.1** Grid UI: items (rows) × members (columns). Always accessible — no gate on confirmation status. Visual design:
   - **Status banner** at the top: "X of Y confirmed" with a first-name chip per member — confirmed chips solid/teal, pending chips greyed.
   - **Column treatment** for unconfirmed members: subtle grey background tint on the whole column + a small pending badge (e.g. clock icon) next to their name in the column header. Confirmed members' columns are normal.
   - **Cells**: show `✓` for included (1 share), `✓ ×N` for included with N>1 shares, `—` for not-included. No stepper in the grid — edits go back to the select screen (grid is read-only display).

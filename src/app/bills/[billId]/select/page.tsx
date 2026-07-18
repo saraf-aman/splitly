@@ -197,6 +197,13 @@ export default function SelectItemsPage() {
           {bill?.confirmedBy?.[uid] ? "Selections confirmed ✓" : "Confirm my selections"}
         </Button>
         <Button
+          variant="outline"
+          className="mt-2 w-full"
+          onClick={() => router.push(`/bills/${billId}/grid`)}
+        >
+          View split grid
+        </Button>
+        <Button
           variant="ghost"
           className="mt-2 w-full text-muted-foreground"
           onClick={() => router.push("/")}

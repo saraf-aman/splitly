@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 6.1 — Grid UI (items × members) with status banner, unconfirmed column tint + pending badge, `✓`/`✓ ×N`/`—` cells, always accessible (no confirmation gate)
+- **Next step:** 6.2 — Split calculation module (pure function, unit-testable)
 - **Phase 5 progress:** complete — 5.1 through 5.5 all done
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
@@ -23,6 +23,12 @@ _Entry template:_
 ```
 
 ---
+
+## 6.1 — Grid UI: items × members  (2026-07-18)
+- Built: New page at `src/app/bills/[billId]/grid/page.tsx`. Status banner ("X of Y confirmed") with first-name chips — confirmed chips solid teal with a ✓, unconfirmed chips greyed with a clock icon. Horizontally scrollable table: sticky first column (item name + price stacked vertically), one column per member. Unconfirmed member columns get `bg-muted/30` tint + clock icon in the header. Cells: `✓` for included (shares=1), `✓ ×N` for shares>1 (self-authored cell uses primary color, others use foreground), `—` for not-included or no selection entry. No stepper — read-only display. Bottom bar: "Edit my selections" (navigates back to select), "Back to home". Added "View split grid" button to select page's bottom bar.
+- Files: `src/app/bills/[billId]/grid/page.tsx` (new), `src/app/bills/[billId]/select/page.tsx`
+- Deviations: `font-money` uses `text-right` internally so used `font-mono tabular-nums` for the price in the item column to keep it left-aligned below the item name.
+- Verified: Navigated via "View split grid" from select page — grid loaded with real bill data, status banner showed "1 of 2 confirmed" with correct chip states, MAGGI NOODLES showed "✓ ×2" (had shares=2 written from prior testing), all other items showed "—", "Edit my selections" navigated back to select page correctly.
 
 ## 5.5 — Replace shares stepper with ⋮ kebab + bottom sheet  (2026-07-18)
 - Built: Removed always-visible stepper and "Shares" column header. Each item row now has a vertical `⋮` (MoreVertical) icon at the right. Tapping it opens a bottom sheet with a large stepper (− / count / +), item name, and explanatory copy ("Covering someone outside the household? Increase this to pay for extra portions…"). When shares > 1 a `×N` badge appears on the icon. Icon is greyed and `disabled` when item is unchecked. Dynamic label below the counter: "just you" at 1, "you + N extra person/people" above that. Backdrop tap or ✕ closes the sheet.
