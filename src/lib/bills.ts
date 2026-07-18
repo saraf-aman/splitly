@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, updateDoc, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, onSnapshot, updateDoc, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Bill, ParsedReceipt, SharedChargeType } from "@/types/firestore";
+import type { Bill, BillItem, ParsedReceipt, SharedChargeType } from "@/types/firestore";
 
 type ParsedBill = ParsedReceipt & {
   restaurantOrStoreName: string | null;
@@ -82,6 +83,44 @@ export async function confirmBill(
 
   // Phase 7 will replace this with a real FCM push to all household members.
   console.log("[splitly] bill confirmed, stub notification fired:", billId);
+}
+
+export function useBill(billId: string | null) {
+  const [bill, setBill] = useState<(Bill & { id: string }) | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!billId) return;
+    return onSnapshot(
+      doc(db, "bills", billId),
+      (snap) => {
+        setBill(snap.exists() ? { id: snap.id, ...(snap.data() as Bill) } : null);
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+  }, [billId]);
+
+  return { bill, loading: billId === null ? false : loading };
+}
+
+export function useBillItems(billId: string | null) {
+  const [items, setItems] = useState<(BillItem & { id: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!billId) return;
+    return onSnapshot(
+      collection(db, "bills", billId, "items"),
+      (snap) => {
+        setItems(snap.docs.map((d) => ({ id: d.id, ...(d.data() as BillItem) })));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+  }, [billId]);
+
+  return { items, loading: billId === null ? false : loading };
 }
 
 export async function createBill(user: User, householdId: string, parsed: ParsedBill): Promise<string> {

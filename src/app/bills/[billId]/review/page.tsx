@@ -104,7 +104,7 @@ export default function ReviewBillPage() {
         charges.push({ type: "service_charge", amount: dollarsToCents(serviceStr) });
 
       await confirmBill(billId, confirmedItems, charges);
-      router.push("/");
+      router.push(`/bills/${billId}/select`);
     } finally {
       setSaving(false);
     }
