@@ -6,7 +6,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import { clearRemovedHouseholdPointer, useMembershipStatus, useUserHousehold } from "@/lib/household";
-import { useFcmRegistration } from "@/lib/notifications";
+import { useNotificationSetup } from "@/lib/notifications";
 
 const ONBOARDING_PATH = "/onboarding";
 
@@ -14,7 +14,7 @@ export function HouseholdGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { householdId, loading } = useUserHousehold();
   const membership = useMembershipStatus(householdId, user?.uid);
-  useFcmRegistration(user?.uid, householdId);
+  useNotificationSetup(user?.uid, householdId);
 
   // Backfill email on existing member docs (new field — runs once per session).
   useEffect(() => {

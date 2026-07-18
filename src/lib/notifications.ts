@@ -1,47 +1,60 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { arrayUnion, doc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
-// Requests notification permission, obtains an FCM token via the serwist SW,
-// and stores it on the member doc so the server can send pushes to this device.
-// No-ops in dev (serwist SW is disabled), when permission is denied, or when
-// NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set.
-export function useFcmRegistration(uid: string | undefined, householdId: string | null) {
-  const registered = useRef(false);
+async function storeFcmToken(uid: string, householdId: string) {
+  if (!VAPID_KEY) return;
+  const swReg = await navigator.serviceWorker.getRegistration("/sw.js");
+  if (!swReg) return;
+  const { getMessaging, getToken } = await import("firebase/messaging");
+  const { app } = await import("./firebase");
+  const messaging = getMessaging(app);
+  const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+  if (!token) return;
+  await updateDoc(doc(db, "households", householdId, "members", uid), {
+    fcmTokens: arrayUnion(token),
+  });
+}
+
+// Returns whether to show the notification permission banner, and a function
+// to call from a button tap (iOS requires a user gesture to trigger the prompt).
+// If permission is already granted, silently stores the token in the background.
+export function useNotificationSetup(uid: string | undefined, householdId: string | null) {
+  // Initialized to null so we can distinguish "not checked yet" from "default".
+  const [permission, setPermission] = useState<NotificationPermission | null>(null);
+  const stored = useRef(false);
 
   useEffect(() => {
-    if (!uid || !householdId || registered.current) return;
     if (typeof window === "undefined" || !("Notification" in window) || !VAPID_KEY) return;
+    // Read permission in a microtask so setState is called in a callback,
+    // not synchronously in the effect body (enforced by lint rule).
+    void Promise.resolve(Notification.permission).then(setPermission);
+  }, []);
 
-    registered.current = true;
+  useEffect(() => {
+    if (!uid || !householdId || permission !== "granted" || stored.current) return;
+    stored.current = true;
+    void storeFcmToken(uid, householdId).catch(() => {});
+  }, [uid, householdId, permission]);
 
-    void (async () => {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") return;
-
-        // Use the serwist SW that already controls this page. In dev the SW is
-        // disabled, so getRegistration returns undefined — skip silently.
-        const swReg = await navigator.serviceWorker.getRegistration("/sw.js");
-        if (!swReg) return;
-
-        const { getMessaging, getToken } = await import("firebase/messaging");
-        const { app } = await import("./firebase");
-        const messaging = getMessaging(app);
-
-        const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
-        if (!token) return;
-
-        await updateDoc(doc(db, "households", householdId, "members", uid), {
-          fcmTokens: arrayUnion(token),
-        });
-      } catch (err) {
-        console.error("[splitly] FCM registration failed:", err);
+  async function requestPermission() {
+    if (!uid || !householdId) return;
+    try {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      if (result === "granted") {
+        await storeFcmToken(uid, householdId);
       }
-    })();
-  }, [uid, householdId]);
+    } catch (err) {
+      console.error("[splitly] FCM permission request failed:", err);
+    }
+  }
+
+  const needsPrompt = permission === "default";
+
+  return { needsPrompt, requestPermission };
 }

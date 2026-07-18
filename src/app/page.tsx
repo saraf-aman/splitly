@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useHousehold, useMembers, useUserHousehold } from "@/lib/household";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { NotificationBanner } from "@/components/NotificationBanner";
 
 export default function Home() {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-background px-6">
+      <NotificationBanner />
       <p className="text-body text-muted-foreground">
         Signed in as {user?.displayName ?? user?.email}
       </p>
