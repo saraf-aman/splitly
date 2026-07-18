@@ -9,6 +9,7 @@ import { useMembers } from "@/lib/household";
 import type { SharedChargeType } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatCents } from "@/lib/utils";
 
 const CHARGE_LABELS: Record<SharedChargeType, string> = {
   tax: "Tax",
@@ -16,10 +17,6 @@ const CHARGE_LABELS: Record<SharedChargeType, string> = {
   service_charge: "Service charge",
   other: "Other",
 };
-
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 export default function SelectItemsPage() {
   const { billId } = useParams<{ billId: string }>();
@@ -181,7 +178,7 @@ export default function SelectItemsPage() {
         {(() => {
           const confirmedBy = bill?.confirmedBy ?? {};
           const confirmedNames = members
-            .filter((m) => confirmedBy[m.id] === true)
+            .filter((m) => confirmedBy[m.id])
             .map((m) => m.displayName.split(" ")[0]);
           return confirmedNames.length > 0 ? (
             <p className="mb-2 text-center text-caption text-muted-foreground">

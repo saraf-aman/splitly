@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 6.2 — Split calculation module (pure function, unit-testable)
+- **Next step:** 6.3 — Final per-person total summary row below the grid
 - **Phase 5 progress:** complete — 5.1 through 5.5 all done
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
@@ -23,6 +23,12 @@ _Entry template:_
 ```
 
 ---
+
+## 6.2 — Split calculation module  (2026-07-18)
+- Built: Pure function `calculateSplit(items, charges, memberIds)` in `src/lib/splitCalc.ts`. Item costs divided proportionally by shares using largest-remainder method (floor each member's share, give extra cents to members with highest fractional loss). Shared charges split equally among all memberIds regardless of selections. Sum of all per-person totals is guaranteed to equal the sum of all item prices + all charge amounts. Installed Vitest (`npm install -D vitest`) + added `"test": "vitest run"` script + `vitest.config.ts`.
+- Files: `src/lib/splitCalc.ts` (new), `src/lib/__tests__/splitCalc.test.ts` (new), `vitest.config.ts` (new), `package.json`
+- Deviations: none
+- Verified: 11/11 tests pass (`npx vitest run`), `tsc --noEmit` clean.
 
 ## 6.1 — Grid UI: items × members  (2026-07-18)
 - Built: New page at `src/app/bills/[billId]/grid/page.tsx`. Status banner ("X of Y confirmed") with first-name chips — confirmed chips solid teal with a ✓, unconfirmed chips greyed with a clock icon. Horizontally scrollable table: sticky first column (item name + price stacked vertically), one column per member. Unconfirmed member columns get `bg-muted/30` tint + clock icon in the header. Cells: `✓` for included (shares=1), `✓ ×N` for shares>1 (self-authored cell uses primary color, others use foreground), `—` for not-included or no selection entry. No stepper — read-only display. Bottom bar: "Edit my selections" (navigates back to select), "Back to home". Added "View split grid" button to select page's bottom bar.

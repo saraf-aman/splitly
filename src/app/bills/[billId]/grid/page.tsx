@@ -6,10 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems } from "@/lib/bills";
 import { useMembers } from "@/lib/household";
 import { Button } from "@/components/ui/button";
-
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+import { formatCents } from "@/lib/utils";
 
 export default function GridPage() {
   const { billId } = useParams<{ billId: string }>();
@@ -42,7 +39,7 @@ export default function GridPage() {
   }
 
   const confirmedBy = bill.confirmedBy ?? {};
-  const confirmedCount = members.filter((m) => confirmedBy[m.id] === true).length;
+  const confirmedCount = members.filter((m) => confirmedBy[m.id]).length;
 
   return (
     <div className="flex flex-1 flex-col bg-background">
@@ -54,7 +51,7 @@ export default function GridPage() {
           </p>
           <div className="flex flex-wrap gap-1.5">
             {members.map((m) => {
-              const confirmed = confirmedBy[m.id] === true;
+              const confirmed = confirmedBy[m.id];
               const firstName = m.displayName.split(" ")[0];
               return (
                 <span
@@ -84,7 +81,7 @@ export default function GridPage() {
                   Item
                 </th>
                 {members.map((m) => {
-                  const confirmed = confirmedBy[m.id] === true;
+                  const confirmed = confirmedBy[m.id];
                   const firstName = m.displayName.split(" ")[0];
                   return (
                     <th
@@ -130,7 +127,7 @@ export default function GridPage() {
                     </div>
                   </td>
                   {members.map((m) => {
-                    const confirmed = confirmedBy[m.id] === true;
+                    const confirmed = confirmedBy[m.id];
                     const sel = item.selections[m.id];
                     const included = sel?.included ?? false;
                     const shares = sel?.shares ?? 1;
