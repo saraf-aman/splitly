@@ -65,8 +65,8 @@ Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.m
 
 ## Phase 7 — Notifications
 
-- [ ] **7.1** FCM setup: request notification permission, register device token, store token(s) on the member doc.
-- [ ] **7.2** Trigger a push notification (Cloud Function or API route) when a bill moves from `pending_review` → `open`, to all household members except the uploader.
+- [x] **7.1** FCM setup: request notification permission, register device token, store token(s) on the member doc.
+- [x] **7.2** Trigger a push notification (Cloud Function or API route) when a bill moves from `pending_review` → `open`, to all household members except the uploader.
 
 ## Phase 8 — Multi-household support
 

@@ -104,6 +104,19 @@ export default function ReviewBillPage() {
         charges.push({ type: "service_charge", amount: dollarsToCents(serviceStr) });
 
       await confirmBill(billId, confirmedItems, charges);
+      // Fire-and-forget: don't block navigation on notification delivery.
+      if (bill.uploadedBy && bill.householdId) {
+        fetch("/api/notify-bill-open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            billId,
+            householdId: bill.householdId,
+            uploaderUid: bill.uploadedBy,
+            billName: bill.restaurantOrStoreName ?? null,
+          }),
+        }).catch(() => {});
+      }
       router.push(`/bills/${billId}/select`);
     } finally {
       setSaving(false);

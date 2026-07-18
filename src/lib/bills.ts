@@ -119,9 +119,6 @@ export async function confirmBill(
   batch.update(doc(db, "bills", billId), { status: "open" });
 
   await batch.commit();
-
-  // Phase 7 will replace this with a real FCM push to all household members.
-  console.log("[splitly] bill confirmed, stub notification fired:", billId);
 }
 
 export function useBill(billId: string | null) {

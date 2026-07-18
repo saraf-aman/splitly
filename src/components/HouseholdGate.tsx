@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { clearRemovedHouseholdPointer, useMembershipStatus, useUserHousehold } from "@/lib/household";
+import { useFcmRegistration } from "@/lib/notifications";
 
 const ONBOARDING_PATH = "/onboarding";
 
@@ -11,6 +12,7 @@ export function HouseholdGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { householdId, loading } = useUserHousehold();
   const membership = useMembershipStatus(householdId, user?.uid);
+  useFcmRegistration(user?.uid, householdId);
   const pathname = usePathname();
   const router = useRouter();
   const isOnboarding = pathname === ONBOARDING_PATH;

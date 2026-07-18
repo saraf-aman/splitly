@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 7.1 — FCM setup (notification permission, device token, store on member doc)
+- **Next step:** 8.1 — Multi-household data model (`householdId: string` → `householdIds: string[]`)
 - **Phase 6 progress:** complete — 6.1 through 6.4 all done (including post-6.4 polish: UX redesign, bug fixes, visual refinements)
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
@@ -22,6 +22,14 @@ _Entry template:_
 ## [Step] — [title]  (YYYY-MM-DD)
 - Built / Files / Deviations / Next session should know
 ```
+
+---
+
+## 7.1 + 7.2 — FCM push notifications  (2026-07-18)
+- **7.1 (token registration):** Added `firebase/messaging/sw` to `src/app/sw.ts` — Firebase app initialized using `NEXT_PUBLIC_*` vars (inlined by webpack at build time), `onBackgroundMessage` shows notification + `notificationclick` opens the deep-link. Created `src/lib/notifications.ts` with `useFcmRegistration(uid, householdId)` hook — requests permission, finds the already-registered serwist SW at `/sw.js`, gets token via `getToken`, `arrayUnion`s it onto `households/{hid}/members/{uid}.fcmTokens`. Hook is mounted in `HouseholdGate.tsx`. Firestore rules updated: any member can `update` their own member doc when only `fcmTokens` is in `affectedKeys()`.
+- **7.2 (send push on bill open):** Installed `firebase-admin@^14`. Created `src/app/api/notify-bill-open/route.ts` — Firebase Admin singleton init, reads all member docs, sends FCM multicast to everyone except the uploader, cleans up stale/invalid tokens with `arrayRemove`. `review/page.tsx` fires a fire-and-forget `fetch` to this route after `confirmBill` succeeds. Stub `console.log` in `confirmBill()` removed.
+- **Env vars needed (not yet in .env.local / Vercel):** `NEXT_PUBLIC_FIREBASE_VAPID_KEY` (Web Push VAPID key from Firebase Console → Project Settings → Cloud Messaging), `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` (from a downloaded service account JSON). Documented in `.env.example`.
+- **Dev note:** FCM token registration silently skips in dev because serwist SW is disabled (`NODE_ENV=development`) — `getRegistration('/sw.js')` returns `undefined`. Tested only via `tsc`/`lint` + code review; live push test requires a production build with the env vars set.
 
 ---
 

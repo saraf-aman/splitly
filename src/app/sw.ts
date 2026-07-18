@@ -2,6 +2,8 @@
 import { defaultCache } from "@serwist/next/worker";
 import { NetworkOnly, Serwist } from "serwist";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
+import { initializeApp, getApps } from "firebase/app";
+import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -33,3 +35,38 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Firebase Messaging background handler — shows push notifications when the
+// PWA is backgrounded or closed. NEXT_PUBLIC_ vars are inlined at build time.
+const firebaseApp =
+  getApps().length > 0
+    ? getApps()[0]!
+    : initializeApp({
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      });
+
+const messagingInstance = getMessaging(firebaseApp);
+
+onBackgroundMessage(messagingInstance, (payload) => {
+  const title = payload.notification?.title ?? "Splitly";
+  const body = payload.notification?.body ?? "New activity in your household";
+  const link = (payload.data as Record<string, string> | undefined)?.link ?? "/";
+  void self.registration.showNotification(title, {
+    body,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: { link },
+  });
+});
+
+self.addEventListener("notificationclick", (event) => {
+  const e = event as NotificationEvent;
+  e.notification.close();
+  const link = (e.notification.data as { link?: string } | undefined)?.link ?? "/";
+  e.waitUntil((self as ServiceWorkerGlobalScope).clients.openWindow(link));
+});
