@@ -3,7 +3,8 @@
 import { useParams, useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useBill, useBillItems, useSharedCharges, updateItemSelection } from "@/lib/bills";
+import { useBill, useBillItems, useSharedCharges, updateItemSelection, confirmSelections } from "@/lib/bills";
+import { useMembers } from "@/lib/household";
 import type { SharedChargeType } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +27,7 @@ export default function SelectItemsPage() {
   const { bill, loading: billLoading } = useBill(billId);
   const { items, loading: itemsLoading } = useBillItems(billId);
   const { charges, loading: chargesLoading } = useSharedCharges(billId);
+  const members = useMembers(bill?.householdId ?? null);
 
   const loading = billLoading || itemsLoading || chargesLoading;
   const uid = user?.uid ?? "";
@@ -118,17 +120,18 @@ export default function SelectItemsPage() {
                   <span className="w-16 text-right font-money text-sm text-muted-foreground tabular-nums">
                     {formatCents(item.price)}
                   </span>
-                  <div className="flex w-20 shrink-0 items-center justify-between">
+                  <div className={`flex w-20 shrink-0 items-center justify-between ${!included ? "opacity-30" : ""}`}>
                     <button
                       className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary disabled:opacity-30"
                       onClick={() => handleShares(item.id, { included, shares }, -1)}
-                      disabled={shares <= 1}
+                      disabled={!included || shares <= 1}
                       aria-label="Decrease shares"
                     >−</button>
                     <span className="w-4 text-center font-money text-sm text-foreground">{shares}</span>
                     <button
-                      className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary"
+                      className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary disabled:opacity-30"
                       onClick={() => handleShares(item.id, { included, shares }, 1)}
+                      disabled={!included}
                       aria-label="Increase shares"
                     >+</button>
                   </div>
@@ -165,9 +168,32 @@ export default function SelectItemsPage() {
         )}
       </div>
 
-      {/* Sticky bottom bar — "confirm my selections" button added in 5.4 */}
-      <div className="border-t bg-card px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <Button variant="outline" className="w-full" onClick={() => router.push("/")}>
+      {/* Sticky bottom bar */}
+      <div className="border-t bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        {/* Who's confirmed — shown whenever at least one member has confirmed */}
+        {(() => {
+          const confirmedBy = bill?.confirmedBy ?? {};
+          const confirmedNames = members
+            .filter((m) => confirmedBy[m.id] === true)
+            .map((m) => m.displayName.split(" ")[0]);
+          return confirmedNames.length > 0 ? (
+            <p className="mb-2 text-center text-caption text-muted-foreground">
+              Done: {confirmedNames.join(", ")}
+            </p>
+          ) : null;
+        })()}
+        <Button
+          className="w-full"
+          variant={bill?.confirmedBy?.[uid] ? "secondary" : "default"}
+          onClick={() => confirmSelections(billId, uid)}
+        >
+          {bill?.confirmedBy?.[uid] ? "Selections confirmed ✓" : "Confirm my selections"}
+        </Button>
+        <Button
+          variant="ghost"
+          className="mt-2 w-full text-muted-foreground"
+          onClick={() => router.push("/")}
+        >
           Back to home
         </Button>
       </div>

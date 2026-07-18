@@ -52,6 +52,7 @@ export interface Bill {
   status: BillStatus;
   createdAt: Timestamp;
   parsedResult: ParsedReceipt;
+  confirmedBy?: Record<string, boolean>; // uid → true when member has confirmed their selections
 }
 
 // bills/{billId}/items/{itemId}

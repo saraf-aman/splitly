@@ -40,6 +40,12 @@ export async function parseBillImage(image: File): Promise<ParsedBill> {
   return res.json();
 }
 
+export async function confirmSelections(billId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, "bills", billId), {
+    [`confirmedBy.${uid}`]: true,
+  });
+}
+
 export async function updateItemSelection(
   billId: string,
   itemId: string,

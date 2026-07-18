@@ -5,15 +5,14 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 5.4 — per-user "done" indicator: "Confirm my selections" button in the sticky bottom bar; writes a `confirmedBy` map on the bill doc (`confirmedBy[uid] = true`); informational only, doesn't block others
-- **Phase 5 progress:** 5.1 + 5.2 + 5.3 done (`/bills/[billId]/select` — full item list with realtime checkbox+shares writes; shared charges as locked rows; `selections[uid] = { included, shares, setBy: uid }` written to each item on toggle)
+- **Next step:** 5.5 — Replace always-visible shares stepper with a vertical `⋮` kebab icon per item row. Tapping opens a bottom sheet with the stepper + explanatory copy. Badge shows `×N` when shares > 1. Icon greyed/non-interactive when item is unchecked. Remove the "Shares" column header.
+- **Phase 5 progress:** 5.1–5.4 done; 5.5 remaining (stepper UX revision)
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6)
 - **Gemini model:** `gemini-flash-lite-latest` (speed > accuracy to stay within Vercel Hobby 10s limit)
 - **Money:** always integer cents everywhere — display formatting only in UI
 - **Key rules:** `"use client"` on anything importing `firebase.ts`; `persistentLocalCache` = IndexedDB browser-only; `react-hooks/set-state-in-effect` lint rule enforced (no setState synchronously in effect bodies — derive from params instead)
-- **For 5.4:** add `confirmedBy` field to bill doc schema (map of uid→bool). Bottom bar already has a stub area (see comment in `select/page.tsx` line 168). `confirmSelections(billId, uid)` in `bills.ts` writes `confirmedBy.${uid}: true` with dot-notation. Show names of confirmed members in the UI (need `useMembers` from `household.ts`). The "Back to home" button should stay as a secondary action.
 
 ---
 
@@ -24,6 +23,12 @@ _Entry template:_
 ```
 
 ---
+
+## 5.4 — Per-user "done" indicator on select screen  (2026-07-18)
+- Built: `confirmedBy?: Record<string, boolean>` added to `Bill` type. `confirmSelections(billId, uid)` in `bills.ts` writes `confirmedBy.${uid}: true` via dot-notation `updateDoc`. Select page imports `useMembers(bill?.householdId ?? null)` and derives confirmed names to display above the button. Primary button switches from "Confirm my selections" (default teal) to "Selections confirmed ✓" (secondary style) on write; "Back to home" remains as ghost secondary below. No Firestore rule change needed — bill doc `update` was already open to any household member.
+- Files: `src/types/firestore.ts`, `src/lib/bills.ts`, `src/app/bills/[billId]/select/page.tsx`
+- Deviations: none
+- Verified: clicked "Confirm my selections" in browser — button changed to "Selections confirmed ✓", "Done: Aman" appeared above it (realtime snap from `useBill`).
 
 ## 5.3 — Wire up Firestore writes on select screen  (2026-07-18)
 - Built: `updateItemSelection(billId, itemId, uid, { included, shares })` in `src/lib/bills.ts` — writes `selections.${uid} = { included, shares, setBy: uid }` with dot-notation `updateDoc` so other users' entries are never overwritten. `handleToggle` and `handleShares` in `select/page.tsx` call it fire-and-forget; Firestore `onSnapshot` drives the displayed state (no local optimistic state needed — snapshot round-trip is fast enough). `setBy: uid` stored from first write onward for Phase 6.4 attribution.

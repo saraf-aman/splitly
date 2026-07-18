@@ -49,13 +49,18 @@ Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.m
 - [x] **5.1** Item list UI with a realtime Firestore listener: checkbox column + shares column per item, default `included: true, shares: 1`.
 - [x] **5.2** Shared charges (tax/tip/service charge) rendered as locked, always-checked rows in the same screen — visually distinct from editable items, no controls to change them.
 - [x] **5.3** Wire up writes: toggling a checkbox or changing a share count for the current user updates their `selections` map on that item in Firestore, and every other open client sees it update live. Write shape is `selections[uid] = { included, shares, setBy: uid }` — the `setBy` field (who actually wrote this entry) is self-only at this phase, but exists from the first write onward so Phase 6.4's owner-override can render real attribution history rather than only newly-overridden entries.
-- [ ] **5.4** Simple per-user "done" indicator (e.g. a "confirm my selections" button) so others can see who's finished vs still deciding — informational only, doesn't block others from viewing/editing their own.
+- [x] **5.4** Simple per-user "done" indicator (e.g. a "confirm my selections" button) so others can see who's finished vs still deciding — informational only, doesn't block others from viewing/editing their own.
+- [ ] **5.5** Replace the always-visible shares stepper on the select screen with a vertical `⋮` (kebab) icon at the end of each item row. Tapping it opens a bottom sheet/popover containing the stepper (− / count / +) and a short explanation: *"Increase this if you're covering someone outside the household — e.g. set to 2 if you brought a friend and are splitting their share too."* When shares > 1 the icon shows a `×N` badge so the non-default state is visible at a glance. The `⋮` icon is greyed out and non-interactive when the item is unchecked. The select screen column header "Shares" is removed since the stepper is no longer always visible.
 
 ## Phase 6 — Final grid & calculations
 
-- [ ] **6.1** Grid UI: items (rows) × members (columns), showing each person's share count per item, `-` for not-included.
+- [ ] **6.1** Grid UI: items (rows) × members (columns). Always accessible — no gate on confirmation status. Visual design:
+  - **Status banner** at the top: "X of Y confirmed" with a first-name chip per member — confirmed chips solid/teal, pending chips greyed.
+  - **Column treatment** for unconfirmed members: subtle grey background tint on the whole column + a small pending badge (e.g. clock icon) next to their name in the column header. Confirmed members' columns are normal.
+  - **Cells**: show `✓` for included (1 share), `✓ ×N` for included with N>1 shares, `—` for not-included. No stepper in the grid — edits go back to the select screen (grid is read-only display).
+  - **Edit access**: regular members can only edit their own column (enforced in 6.4); bill uploader can edit any column regardless of that member's confirmation status.
 - [ ] **6.2** Split calculation module (pure function, unit-testable): item costs divided by shares, tax/tip/service equally split, correct cent-accurate rounding (per §5 of PROJECT_PLAN.md). Write a few test cases including an uneven-split example.
-- [ ] **6.3** Final per-person total summary displayed below the grid, visible to anyone who has interacted with the bill.
+- [ ] **6.3** Final per-person total summary row below the grid. For confirmed members show the exact total; for unconfirmed members show `~$X.XX` (tilde prefix) to signal the number may still change.
 - [ ] **6.4** Bill-owner override: tighten `items` Firestore rules (`update`) so a write only succeeds if the only `selections` keys being changed belong to the caller themself, *or* the caller is the bill's `uploadedBy` (who may touch any member's key) — via `.diff().affectedKeys()` on the nested `selections` map, not a per-entry loop. Grid cells for other members become interactive only for the uploader (checkbox + share count). Visually distinguish self-set vs. uploader-set entries (e.g. a different checkmark color) driven by each entry's `setBy` field from 5.3.
 
 ## Phase 7 — Notifications
