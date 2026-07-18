@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 9.2 — Hamburger drawer component (Home / Manage admin-only / Switch Household / Sign out). Full design spec in `PROJECT_PLAN.md §14`.
+- **Next step:** 9.3 — Household home page redesign: bills feed (scrollable bill cards per `PROJECT_PLAN.md §14`), floating camera FAB bottom-right, empty state, and fix UI gap for single-household users (add "Join or create another household" entry point).
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -23,6 +23,13 @@ _Entry template:_
 ```
 
 ---
+
+## 9.2 — Hamburger drawer component  (2026-07-18)
+- New `src/components/NavDrawer.tsx`: slides in from right (220ms ease-out). Backdrop fades in at `rgba(26,26,31,0.36)`, dismisses on click.
+- Drawer header: household name (from `useHousehold`) + X close button, same 62px height as the top bar.
+- Nav items: Home → `/households/[id]`; Manage → `/households/[id]/household` (admin/creator only, reads from `useMembers`); Switch Household → `/households`; Sign out (red, fires `signOut(auth)`). Escape key also closes.
+- `AppShell.tsx`: added `useState<boolean> drawerOpen`, wired hamburger `onClick` to `setDrawerOpen(true)`, renders `<NavDrawer>` when `hhId` is truthy.
+- tsc + lint both clean. Verified in browser: drawer opens/closes, Home nav works, Manage nav goes to manage page.
 
 ## 9.1 — Navigation shell rework  (2026-07-18)
 - `AppShell` fully rewritten: bottom tab bar removed; fixed top bar with Splitly wordmark (left → `/households`) + hamburger/sign-out (right).

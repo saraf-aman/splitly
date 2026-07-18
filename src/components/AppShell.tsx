@@ -1,22 +1,25 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Home, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { NavDrawer } from "@/components/NavDrawer";
 
 const SHELLLESS_PATHS = ["/login", "/onboarding"];
 const PICKER_PATH = "/households";
 
 // Nav height matches Meridian: 62px
 const NAV_H = 62;
-// Pill row below the nav bar adds ~40px on inner screens
-const PILL_H = 40;
+// Space reserved below the nav for the floating home button on inner screens
+const PILL_H = 52;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const hhMatch = pathname.match(/^\/households\/([^/]+)/);
   const hhId = hhMatch?.[1] ?? "";
@@ -73,6 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             // Custom hamburger spans — thinner and more refined than Lucide Menu icon
             <button
               aria-label="Open menu"
+              onClick={() => setDrawerOpen(true)}
               className="text-foreground transition-colors hover:bg-secondary"
               style={{ width: 36, height: 36, borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 6px" }}
             >
@@ -83,31 +87,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        {/* Liquid glass home pill — inner household screens only */}
-        {isInnerScreen && (
-          <div className="px-6 pb-3">
-            <Link
-              href={`/households/${hhId}`}
-              aria-label="Go to household home"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5"
-              style={{
-                background: "rgba(255,255,255,0.55)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                border: "1px solid rgba(255,255,255,0.75)",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.6)",
-              }}
-            >
-              <ArrowLeft className="size-3.5 text-foreground" />
-              <Home className="size-3.5 text-foreground" />
-            </Link>
-          </div>
-        )}
       </header>
+
+      {/* Floating liquid glass home button — outside the header, inner screens only */}
+      {isInnerScreen && (
+        <Link
+          href={`/households/${hhId}`}
+          aria-label="Go to household home"
+          className="fixed z-10 inline-flex items-center justify-center"
+          style={{
+            top: NAV_H + 10,
+            left: 24,
+            width: 38,
+            height: 38,
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.5)",
+            backdropFilter: "blur(14px)",
+            WebkitBackdropFilter: "blur(14px)",
+            border: "1px solid rgba(255,255,255,0.8)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.7)",
+            fontSize: "18px",
+            lineHeight: 1,
+          }}
+        >
+          🏠
+        </Link>
+      )}
 
       <main style={{ paddingTop: isInnerScreen ? NAV_H + PILL_H : NAV_H }} className="flex flex-1 flex-col">
         {children}
       </main>
+
+      {hhId && (
+        <NavDrawer
+          householdId={hhId}
+          isOpen={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
     </div>
   );
 }
