@@ -33,6 +33,8 @@ Guests sign in with their own Google account (not a proxy/shared login) so they 
 
 A guest can alternatively be represented with zero login at all, by another member simply bumping their own share count on relevant items (e.g. "2" instead of "1"). This remains available for one-off, non-recurring guests who won't be interacting with the app themselves — it's a manual convenience, not a formal role.
 
+**Bill-owner override is separate from this tier table** — it's keyed off bill-upload ownership (`bills/{id}.uploadedBy`), not household role. Whoever uploads a given bill can check/uncheck items and adjust share counts on behalf of any other member *on that bill's grid screen only* (Phase 6.4); a guest who uploads a bill gets override rights on that specific bill just like an admin or the creator would. This is orthogonal to the Creator/Admin/Guest hierarchy above, not an extension of it.
+
 ## 4. Core user flow
 
 1. **Upload**: Any household member (admin or guest) uploads a photo/screenshot of a receipt.
@@ -44,7 +46,7 @@ A guest can alternatively be represented with zero login at all, by another memb
    - a share count (default `1`) — used for cases like "my friend is staying with me, count me for 2 shares" without that friend needing an account
    Tax/tip/service-charge rows are always shown in this same screen, always pre-checked, and are **not editable** (can't be unchecked or share-adjusted) — they always apply equally to everyone on the bill.
    All of this is realtime: as soon as one person changes a selection, everyone else viewing the bill sees the update live via Firestore listeners.
-6. **Final grid**: Once people are done selecting, anyone who interacted with the bill can view a grid — items (rows) × household members (columns) — showing each person's share count per item, with `-` for anyone who didn't select that item. Below the grid: each person's final total (their itemized cost + their equal share of tax/tip/service charge).
+6. **Final grid**: Once people are done selecting, anyone who interacted with the bill can view a grid — items (rows) × household members (columns) — showing each person's share count per item, with `-` for anyone who didn't select that item. Below the grid: each person's final total (their itemized cost + their equal share of tax/tip/service charge). The bill's uploader can also check/uncheck items and adjust shares here on behalf of any other member (everyone else can only edit their own column); each cell's `setBy` field distinguishes a self-set entry from one the uploader overrode, rendered as a visual difference (e.g. checkmark color) so it's clear at a glance who actually made a given selection.
 
 ## 5. Split calculation logic
 
@@ -57,8 +59,10 @@ A guest can alternatively be represented with zero login at all, by another memb
 ## 6. Data model (Firestore)
 
 ```
-users/{userId}               // reverse index: which household this signed-in user belongs to
-  householdId: string
+users/{userId}               // reverse index: which household(s) this signed-in user belongs to
+  householdIds: string[]     // a user may belong to multiple households (Phase 8) — a simple
+                             // array field, not a subcollection, since it's always read all-at-
+                             // once for a picker/dashboard and never queried/filtered independently
 
 households/{householdId}
   name: string
@@ -86,7 +90,10 @@ bills/{billId}
     price: number               // in cents, to avoid float rounding issues
     lowConfidence: boolean       // AI parser flagged this for double-checking
     selections: {
-      [userId]: { included: boolean, shares: number }   // default: included=true, shares=1
+      // default: included=true, shares=1. setBy records who actually wrote this entry (self, or
+      // the bill's uploadedBy overriding it) — used purely for the Phase 6.4 attribution display,
+      // not rules-enforced (it's a cosmetic hint, not a security boundary).
+      [userId]: { included: boolean, shares: number, setBy: userId }
     }
 
   sharedCharges/{chargeId}      // tax, tip, service charge — always equal split, locked
@@ -98,6 +105,7 @@ Design notes:
 - Store all money values in **integer cents**, never floats, to avoid rounding bugs.
 - `sharedCharges` is a separate collection from `items` specifically because it's never subject to per-user include/exclude/share editing — keeping it structurally separate prevents accidental UI logic that lets someone uncheck a tax line.
 - History retention: bills older than **2 weeks** are not shown in the default history view. (Implementation options to evaluate at that stage: a scheduled Cloud Function that archives/deletes, or simply a query filter with a manual cleanup job — pick the cheaper one; likely a query filter, since there's no strict need to actually delete data at this small scale, just hide old clutter.)
+- `items` Firestore rules (Phase 6.4): today any household member can write the entire `items/{itemId}` doc, with no restriction on whose `selections` key they touch. That's tightened at Phase 6.4 by scoping the `update` rule with `request.resource.data.selections.diff(resource.data.selections).affectedKeys()`, requiring the changed keys to be either just the caller's own uid, or — if the caller is the bill's `uploadedBy` — any key at all. `create` stays open to any household member (Phase 4.2 confirm writes the initial item docs).
 
 ## 7. Notifications (Firebase Cloud Messaging)
 
@@ -223,3 +231,13 @@ FCM push notifications require iOS 16.4+ with the PWA installed to the home scre
 ### Money: integer cents throughout
 
 All monetary values in Firestore and in calculation functions are stored and handled as **integer cents** (e.g. `$12.50` → `1250`). Never use floats for money. The split calculation module (Phase 4.2) handles rounding remainders to ensure the sum of all per-person totals equals the bill total exactly.
+
+## 13. Multi-household architecture (Phase 8)
+
+Originally deferred (see the Phase 1.5 progress note) as a foundational data-model change not worth retrofitting mid-stream. Revisited once Phases 1-7 were far enough along to see the actual coupling surface, which turned out to be narrow: every Firestore rule already gates access per-household via the `households/{id}/members/{uid}` subcollection (never via the `users/{uid}` doc), and every data-fetching hook in `src/lib/household.ts` except `useUserHousehold` already takes `householdId` as an explicit parameter rather than reading a global singleton. So multi-household support is additive routing + a data-shape change, not a rewrite of the household/bill/selection logic already built.
+
+**Data model: `users/{uid}.householdIds: string[]`, not a `users/{uid}/households/{id}` subcollection.** At this project's scale, a user belongs to at most a handful of households and the only access pattern is "give me all of them at once" for a picker screen — never an independent query or filter across households. An array field is a single listener call and needs zero `firestore.rules` changes (the existing `users/{userId}` rule — self-read/write only — already permits rewriting the whole doc). A subcollection would only pay off if querying/filtering households independently mattered, which it doesn't here.
+
+**Routing: `/households/[householdId]/...`.** Today's flat routes (`/`, `/bills/new`, `/household`) assume exactly one global household context. Phase 8 nests them under a household id segment so every screen is explicitly scoped to the household the URL names — this also plays well with future deep links (e.g. a push notification landing on a specific bill within a specific household). A new picker/landing screen at `/households` lists all of a user's households (reusing the existing create/join UI); a user in exactly one household is routed straight into it, preserving today's zero-friction single-household experience.
+
+**Why Phase 8, not earlier or later:** inserted right before the (renumbered) Phase 9 "History & dashboard," because that dashboard is exactly the screen a household picker needs to sit in front of. Building the picker as its own phase first means the dashboard gets built once, correctly, against a picker that already exists — rather than being built single-household in an earlier phase and reworked later once multi-household lands.

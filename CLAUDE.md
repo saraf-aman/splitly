@@ -49,6 +49,8 @@ Three-tier hierarchy — **Creator > Admin > Guest**. The creator is the one who
 - **Admin**: everything bill-related, plus can promote a guest to admin and remove a guest. Cannot demote or remove another admin (including the creator) — that's creator-only.
 - **Guest** (e.g. a temporary roommate): everything bill-related — upload, review/edit parsed items, select items/shares, view final grid, push to Splitwise. Cannot touch household management screens at all.
 
+Separately, **bill-owner override** (Phase 6.4) is keyed off bill-upload ownership, not this tier table: whoever uploaded a given bill can edit any member's selections on that bill's grid screen, regardless of their household role.
+
 ## Git discipline
 
 - Never run `git commit` or `git push` (or any other action that alters git history/remote state) unless the user explicitly asks for it in that moment. The user commits and pushes themselves. Staging/inspecting (`git status`, `git diff`, `git add` to prep for the user) is fine.

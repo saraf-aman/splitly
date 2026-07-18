@@ -48,7 +48,7 @@ Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.m
 
 - [ ] **5.1** Item list UI with a realtime Firestore listener: checkbox column + shares column per item, default `included: true, shares: 1`.
 - [ ] **5.2** Shared charges (tax/tip/service charge) rendered as locked, always-checked rows in the same screen — visually distinct from editable items, no controls to change them.
-- [ ] **5.3** Wire up writes: toggling a checkbox or changing a share count for the current user updates their `selections` map on that item in Firestore, and every other open client sees it update live.
+- [ ] **5.3** Wire up writes: toggling a checkbox or changing a share count for the current user updates their `selections` map on that item in Firestore, and every other open client sees it update live. Write shape is `selections[uid] = { included, shares, setBy: uid }` — the `setBy` field (who actually wrote this entry) is self-only at this phase, but exists from the first write onward so Phase 6.4's owner-override can render real attribution history rather than only newly-overridden entries.
 - [ ] **5.4** Simple per-user "done" indicator (e.g. a "confirm my selections" button) so others can see who's finished vs still deciding — informational only, doesn't block others from viewing/editing their own.
 
 ## Phase 6 — Final grid & calculations
@@ -56,26 +56,38 @@ Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.m
 - [ ] **6.1** Grid UI: items (rows) × members (columns), showing each person's share count per item, `-` for not-included.
 - [ ] **6.2** Split calculation module (pure function, unit-testable): item costs divided by shares, tax/tip/service equally split, correct cent-accurate rounding (per §5 of PROJECT_PLAN.md). Write a few test cases including an uneven-split example.
 - [ ] **6.3** Final per-person total summary displayed below the grid, visible to anyone who has interacted with the bill.
+- [ ] **6.4** Bill-owner override: tighten `items` Firestore rules (`update`) so a write only succeeds if the only `selections` keys being changed belong to the caller themself, *or* the caller is the bill's `uploadedBy` (who may touch any member's key) — via `.diff().affectedKeys()` on the nested `selections` map, not a per-entry loop. Grid cells for other members become interactive only for the uploader (checkbox + share count). Visually distinguish self-set vs. uploader-set entries (e.g. a different checkmark color) driven by each entry's `setBy` field from 5.3.
 
 ## Phase 7 — Notifications
 
 - [ ] **7.1** FCM setup: request notification permission, register device token, store token(s) on the member doc.
 - [ ] **7.2** Trigger a push notification (Cloud Function or API route) when a bill moves from `pending_review` → `open`, to all household members except the uploader.
 
-## Phase 8 — History & dashboard
+## Phase 8 — Multi-household support
 
-- [ ] **8.1** Home dashboard: list of bills needing the current user's input (no selection made yet on an `open` bill), plus quick stats (e.g. "2 bills pending").
-- [ ] **8.2** Bill history view limited to the last 2 weeks, with the older-than-2-weeks bills simply excluded from the default query (no need to delete data unless storage becomes a concern later).
+A user currently belongs to exactly one household forever (`users/{uid}.householdId` is a single string), and every screen assumes that single global context. This phase generalizes to multiple households *before* Phase 9 builds the real home dashboard, so that dashboard is built once against a picker that already exists rather than retrofitted later. Every data-fetching hook except `useUserHousehold` (`src/lib/household.ts`) already takes `householdId` as an explicit parameter, and Firestore rules already gate everything per-household via the `members` subcollection (never via the `users/{uid}` doc) — so this is additive routing + a data-shape change, not a rewrite of Phases 1-7.
 
-## Phase 9 — Splitwise integration
+- [ ] **8.1** Data model: `users/{uid}.householdId: string` → `householdIds: string[]`. Update `createHousehold`/`joinHousehold` to append (`arrayUnion`) instead of overwrite.
+- [ ] **8.2** `leaveHousehold` action + rule change: today even self-removal requires `isHouseholdAdmin`, so a guest cannot leave on their own. Add a rule clause letting any non-creator member delete their own `members/{uid}` doc regardless of role, then remove that id from their own `householdIds` array client-side — multi-household makes leaving a normal action, not an exceptional one.
+- [ ] **8.3** Hooks rework: replace `useUserHousehold()` with `useUserHouseholds()` (returns the list the user belongs to). Every other hook (`useHousehold`, `useMembers`, `useMembershipStatus`, `updateMemberRole`, `removeMember`, `deleteHousehold`) is unchanged.
+- [ ] **8.4** Routing rework: flat routes (`/`, `/bills/new`, `/household`) become `/households/[householdId]/...`.
+- [ ] **8.5** Picker/landing screen: lists all of the user's households (reuses the existing create/join UI as "add another household"); if the user belongs to exactly one, auto-enter it directly rather than forcing an extra tap.
+- [ ] **8.6** `HouseholdGate` rework: binary onboarding/home redirect becomes three-way — 0 households → `/onboarding`; exactly 1 → straight into that household; 2+ → the picker. Generalize the existing removed-while-viewing detection (currently keyed off one global `householdId`) to work per-household.
 
-- [ ] **9.1** Settings screen to connect a Splitwise API key + select/enter the target group.
-- [ ] **9.2** "Push to Splitwise" button on the final grid screen that sends the computed per-person totals as an expense to the connected group.
+## Phase 9 — History & dashboard
 
-## Phase 10 — Polish & v2 features
+- [ ] **9.1** Home dashboard: list of bills needing the current user's input (no selection made yet on an `open` bill), plus quick stats (e.g. "2 bills pending"). Built against the Phase 8 picker/routing, scoped to the currently-selected household.
+- [ ] **9.2** Bill history view limited to the last 2 weeks, with the older-than-2-weeks bills simply excluded from the default query (no need to delete data unless storage becomes a concern later).
 
-- [ ] **10.1** Manual fallback entry: skip AI parsing entirely and type items directly.
-- [ ] **10.2** Reminder nudges for members who haven't responded to an open bill after a set time.
-- [ ] **10.3** Smart defaults: auto-uncheck items a given user has consistently opted out of historically.
-- [ ] **10.4** Per-bill notes field (e.g. "I'm paying for the wine separately, don't include me").
-- [ ] **10.5** General mobile polish pass, offline/error state handling, loading states.
+## Phase 10 — Splitwise integration
+
+- [ ] **10.1** Settings screen to connect a Splitwise API key + select/enter the target group.
+- [ ] **10.2** "Push to Splitwise" button on the final grid screen that sends the computed per-person totals as an expense to the connected group.
+
+## Phase 11 — Polish & v2 features
+
+- [ ] **11.1** Manual fallback entry: skip AI parsing entirely and type items directly.
+- [ ] **11.2** Reminder nudges for members who haven't responded to an open bill after a set time.
+- [ ] **11.3** Smart defaults: auto-uncheck items a given user has consistently opted out of historically.
+- [ ] **11.4** Per-bill notes field (e.g. "I'm paying for the wine separately, don't include me").
+- [ ] **11.5** General mobile polish pass, offline/error state handling, loading states.
