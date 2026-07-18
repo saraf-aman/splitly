@@ -5,9 +5,9 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 5.5 — Replace always-visible shares stepper with a vertical `⋮` kebab icon per item row. Tapping opens a bottom sheet with the stepper + explanatory copy. Badge shows `×N` when shares > 1. Icon greyed/non-interactive when item is unchecked. Remove the "Shares" column header.
-- **Phase 5 progress:** 5.1–5.4 done; 5.5 remaining (stepper UX revision)
-- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm)
+- **Next step:** 6.1 — Grid UI (items × members) with status banner, unconfirmed column tint + pending badge, `✓`/`✓ ×N`/`—` cells, always accessible (no confirmation gate)
+- **Phase 5 progress:** complete — 5.1 through 5.5 all done
+- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6)
 - **Gemini model:** `gemini-flash-lite-latest` (speed > accuracy to stay within Vercel Hobby 10s limit)
@@ -23,6 +23,12 @@ _Entry template:_
 ```
 
 ---
+
+## 5.5 — Replace shares stepper with ⋮ kebab + bottom sheet  (2026-07-18)
+- Built: Removed always-visible stepper and "Shares" column header. Each item row now has a vertical `⋮` (MoreVertical) icon at the right. Tapping it opens a bottom sheet with a large stepper (− / count / +), item name, and explanatory copy ("Covering someone outside the household? Increase this to pay for extra portions…"). When shares > 1 a `×N` badge appears on the icon. Icon is greyed and `disabled` when item is unchecked. Dynamic label below the counter: "just you" at 1, "you + N extra person/people" above that. Backdrop tap or ✕ closes the sheet.
+- Files: `src/app/bills/[billId]/select/page.tsx`
+- Deviations: none
+- Verified: tapped ⋮ on MAGGI NOODLES, sheet opened, bumped to 2, label changed to "you + 1 extra person", ×2 badge appeared on the row icon in real time.
 
 ## 5.4 — Per-user "done" indicator on select screen  (2026-07-18)
 - Built: `confirmedBy?: Record<string, boolean>` added to `Bill` type. `confirmSelections(billId, uid)` in `bills.ts` writes `confirmedBy.${uid}: true` via dot-notation `updateDoc`. Select page imports `useMembers(bill?.householdId ?? null)` and derives confirmed names to display above the button. Primary button switches from "Confirm my selections" (default teal) to "Selections confirmed ✓" (secondary style) on write; "Back to home" remains as ghost secondary below. No Firestore rule change needed — bill doc `update` was already open to any household member.
