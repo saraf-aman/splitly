@@ -6,8 +6,7 @@
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
 - **Next step:** 8.1 — Multi-household data model (`householdId: string` → `householdIds: string[]`)
-- **Phase 6 progress:** complete — 6.1 through 6.4 all done (including post-6.4 polish: UX redesign, bug fixes, visual refinements)
-- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations)
+- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
 - **Gemini model:** `gemini-flash-lite-latest` (speed > accuracy to stay within Vercel Hobby 10s limit)
@@ -26,10 +25,12 @@ _Entry template:_
 ---
 
 ## 7.1 + 7.2 — FCM push notifications  (2026-07-18)
-- **7.1 (token registration):** Added `firebase/messaging/sw` to `src/app/sw.ts` — Firebase app initialized using `NEXT_PUBLIC_*` vars (inlined by webpack at build time), `onBackgroundMessage` shows notification + `notificationclick` opens the deep-link. Created `src/lib/notifications.ts` with `useFcmRegistration(uid, householdId)` hook — requests permission, finds the already-registered serwist SW at `/sw.js`, gets token via `getToken`, `arrayUnion`s it onto `households/{hid}/members/{uid}.fcmTokens`. Hook is mounted in `HouseholdGate.tsx`. Firestore rules updated: any member can `update` their own member doc when only `fcmTokens` is in `affectedKeys()`.
-- **7.2 (send push on bill open):** Installed `firebase-admin@^14`. Created `src/app/api/notify-bill-open/route.ts` — Firebase Admin singleton init, reads all member docs, sends FCM multicast to everyone except the uploader, cleans up stale/invalid tokens with `arrayRemove`. `review/page.tsx` fires a fire-and-forget `fetch` to this route after `confirmBill` succeeds. Stub `console.log` in `confirmBill()` removed.
-- **Env vars needed (not yet in .env.local / Vercel):** `NEXT_PUBLIC_FIREBASE_VAPID_KEY` (Web Push VAPID key from Firebase Console → Project Settings → Cloud Messaging), `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` (from a downloaded service account JSON). Documented in `.env.example`.
-- **Dev note:** FCM token registration silently skips in dev because serwist SW is disabled (`NODE_ENV=development`) — `getRegistration('/sw.js')` returns `undefined`. Tested only via `tsc`/`lint` + code review; live push test requires a production build with the env vars set.
+- **7.1 (token registration):** Added `firebase/messaging/sw` to `src/app/sw.ts` — Firebase app initialized using `NEXT_PUBLIC_*` vars (inlined by webpack at build time), `onBackgroundMessage` shows notification + `notificationclick` opens the deep-link. `src/lib/notifications.ts` exports `useNotificationSetup(uid, householdId)` — reads current permission state via a microtask (to satisfy lint rule), auto-stores token if already granted, returns `{ needsPrompt, requestPermission }` for the banner. Hook mounted in `HouseholdGate.tsx`. `src/components/NotificationBanner.tsx` renders an "Enable notifications" banner + button on the home page — the tap is the user gesture iOS requires to show the system prompt (auto-requesting in useEffect is silently blocked on iOS). Firestore rules updated: any member can `update` their own member doc when `affectedKeys()` is a subset of `['fcmTokens', 'email']`.
+- **7.2 (send push on bill open):** Installed `firebase-admin@^14`. `src/app/api/notify-bill-open/route.ts` — Firebase Admin singleton, multicast push to all members except uploader, stale-token cleanup via `arrayRemove`. `review/page.tsx` fires fire-and-forget fetch to this route after `confirmBill`. Stub `console.log` removed from `confirmBill()`.
+- **Email on member doc:** Added `email` field to `Member` type and to both `createHousehold`/`joinHousehold` writes. Backfill `useEffect` in `HouseholdGate` writes email on every app load (idempotent). Firestore rule extended to allow self-update of `email` alongside `fcmTokens`.
+- **Grid color fix:** `uploaderSet` now takes priority over `isSelf` in the cell color logic — owner-set items show amber for the member themselves too, not just from other columns.
+- **Env vars (all set in .env.local + Vercel):** `NEXT_PUBLIC_FIREBASE_VAPID_KEY`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`. Documented in `.env.example`.
+- **Dev note:** FCM token registration silently skips in dev (serwist SW disabled in `NODE_ENV=development`). Notification banner still renders but `storeFcmToken` no-ops. Fully tested in production PWA on iOS.
 
 ---
 
