@@ -174,10 +174,10 @@ export default function GridPage() {
                       cellContent = (
                         <span
                           className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            isSelf
-                              ? "bg-green-500 text-white"
-                              : uploaderSet
+                            uploaderSet
                               ? "bg-amber-500 text-white"
+                              : isSelf
+                              ? "bg-green-500 text-white"
                               : "bg-muted text-foreground"
                           }`}
                         >
