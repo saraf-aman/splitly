@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 8.1 — Multi-household data model (`householdId: string` → `householdIds: string[]`)
+- **Next step:** 8.2 — `leaveHousehold` action + Firestore rule letting any non-creator member delete their own member doc
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -21,6 +21,17 @@ _Entry template:_
 ## [Step] — [title]  (YYYY-MM-DD)
 - Built / Files / Deviations / Next session should know
 ```
+
+---
+
+## 8.1 — Multi-household data model  (2026-07-18)
+- `UserDoc.householdId: string` → `householdIds: string[]` in `src/types/firestore.ts`
+- `createHousehold` / `joinHousehold` now use `setDoc(..., { householdIds: arrayUnion(id) }, { merge: true })` instead of overwriting the doc
+- `useUserHousehold` reads `householdIds[0]` with a legacy fallback (`data?.householdId`) so existing Firestore docs (written before this change) still route correctly
+- `clearRemovedHouseholdPointer` now takes `householdId` arg and uses `arrayRemove` instead of `deleteDoc` — leaves other households intact; empty array routes back to onboarding naturally
+- `HouseholdGate` passes `householdId!` to the updated function (safe: called inside `wasRemoved` guard which asserts `householdId` is non-null)
+- Firestore rules unchanged — `/users/{uid}` is already `allow read, write: if owner`
+- `tsc --noEmit` + lint both clean
 
 ---
 

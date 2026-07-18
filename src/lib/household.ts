@@ -13,6 +13,8 @@ import {
   setDoc,
   updateDoc,
   where,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { db } from "./firebase";
@@ -38,7 +40,7 @@ export async function createHousehold(user: User, name: string): Promise<string>
     fcmTokens: [],
     addedAt: serverTimestamp(),
   });
-  await setDoc(doc(db, "users", user.uid), { householdId: householdRef.id });
+  await setDoc(doc(db, "users", user.uid), { householdIds: arrayUnion(householdRef.id) }, { merge: true });
   return householdRef.id;
 }
 
@@ -52,7 +54,7 @@ export async function joinHousehold(user: User, householdId: string): Promise<vo
     fcmTokens: [],
     addedAt: serverTimestamp(),
   });
-  await setDoc(doc(db, "users", user.uid), { householdId: trimmedId });
+  await setDoc(doc(db, "users", user.uid), { householdIds: arrayUnion(trimmedId) }, { merge: true });
 }
 
 type UserHouseholdState = { loading: boolean; householdId: string | null };
@@ -64,10 +66,10 @@ export function useUserHousehold(): UserHouseholdState {
   useEffect(() => {
     if (!user) return;
     return onSnapshot(doc(db, "users", user.uid), (snap) => {
-      setState({
-        loading: false,
-        householdId: snap.exists() ? (snap.data().householdId as string) : null,
-      });
+      const data = snap.exists() ? snap.data() : null;
+      // Fall back to legacy `householdId` string so docs written before 8.1 still work.
+      const ids: string[] = data?.householdIds ?? (data?.householdId ? [data.householdId as string] : []);
+      setState({ loading: false, householdId: ids[0] ?? null });
     });
   }, [user]);
 
@@ -148,11 +150,11 @@ export function useMembershipStatus(householdId: string | null, uid: string | un
   return key ? state : { loading: false, isMember: true };
 }
 
-// Called when a user discovers they've been removed from their household:
-// clears their own users/{uid} pointer (only they can write it) so
-// useUserHousehold naturally routes them back to onboarding.
-export async function clearRemovedHouseholdPointer(user: User): Promise<void> {
-  await deleteDoc(doc(db, "users", user.uid));
+// Called when a user discovers they've been removed from a household: removes
+// just that householdId from their array so any remaining households still work.
+// If the array is now empty, useUserHousehold returns null → routes to onboarding.
+export async function clearRemovedHouseholdPointer(user: User, householdId: string): Promise<void> {
+  await updateDoc(doc(db, "users", user.uid), { householdIds: arrayRemove(householdId) });
 }
 
 export async function updateMemberRole(
