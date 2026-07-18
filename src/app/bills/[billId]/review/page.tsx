@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { AlertTriangle, Trash2, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { getBill, updateBillParsedResult } from "@/lib/bills";
+import { getBill, confirmBill } from "@/lib/bills";
 import type { Bill } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,17 +89,21 @@ export default function ReviewBillPage() {
     if (!bill || !billId) return;
     setSaving(true);
     try {
-      await updateBillParsedResult(billId, {
-        ...bill.parsedResult,
-        items: items.map((it) => ({
-          name: it.name.trim() || "Item",
-          price: dollarsToCents(it.priceStr),
-          lowConfidence: it.lowConfidence,
-        })),
-        tax: taxStr ? dollarsToCents(taxStr) : null,
-        tip: tipStr ? dollarsToCents(tipStr) : null,
-        serviceCharge: serviceStr ? dollarsToCents(serviceStr) : null,
-      });
+      const confirmedItems = items.map((it) => ({
+        name: it.name.trim() || "Item",
+        price: dollarsToCents(it.priceStr),
+        lowConfidence: it.lowConfidence,
+      }));
+
+      const charges: { type: "tax" | "tip" | "service_charge"; amount: number }[] = [];
+      if (taxStr && dollarsToCents(taxStr) > 0)
+        charges.push({ type: "tax", amount: dollarsToCents(taxStr) });
+      if (tipStr && dollarsToCents(tipStr) > 0)
+        charges.push({ type: "tip", amount: dollarsToCents(tipStr) });
+      if (serviceStr && dollarsToCents(serviceStr) > 0)
+        charges.push({ type: "service_charge", amount: dollarsToCents(serviceStr) });
+
+      await confirmBill(billId, confirmedItems, charges);
       router.push("/");
     } finally {
       setSaving(false);
@@ -118,6 +122,18 @@ export default function ReviewBillPage() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
         <p className="text-body text-muted-foreground">Bill not found.</p>
+        <Button variant="outline" onClick={() => router.push("/")}>
+          Go home
+        </Button>
+      </div>
+    );
+  }
+
+  if (bill.status !== "pending_review") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+        <p className="text-heading text-foreground">Bill already confirmed</p>
+        <p className="text-body text-muted-foreground">This bill has already been confirmed and is open for selections.</p>
         <Button variant="outline" onClick={() => router.push("/")}>
           Go home
         </Button>

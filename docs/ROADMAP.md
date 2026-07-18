@@ -42,7 +42,7 @@ Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.m
 ## Phase 4 — Bill review & confirm
 
 - [x] **4.1** Review/edit screen: uploader sees parsed items in an editable list (edit name/price, delete, add a missed item), with any AI-flagged low-confidence items visually marked.
-- [ ] **4.2** Confirm action: on confirm, write final `items` and `sharedCharges` subcollections, set bill status to `open`, and (stub for now, wire up real push in Phase 7) trigger a placeholder notification event.
+- [x] **4.2** Confirm action: on confirm, write final `items` and `sharedCharges` subcollections, set bill status to `open`, and (stub for now, wire up real push in Phase 7) trigger a placeholder notification event.
 
 ## Phase 5 — Realtime selection screen
 

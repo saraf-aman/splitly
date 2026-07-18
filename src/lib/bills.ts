@@ -1,9 +1,9 @@
 "use client";
 
 import type { User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, updateDoc, Timestamp, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, updateDoc, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Bill, ParsedReceipt } from "@/types/firestore";
+import type { Bill, ParsedReceipt, SharedChargeType } from "@/types/firestore";
 
 type ParsedBill = ParsedReceipt & {
   restaurantOrStoreName: string | null;
@@ -46,6 +46,42 @@ export async function getBill(billId: string): Promise<Bill | null> {
 
 export async function updateBillParsedResult(billId: string, parsedResult: ParsedReceipt): Promise<void> {
   await updateDoc(doc(db, "bills", billId), { parsedResult });
+}
+
+export interface ConfirmItem {
+  name: string;
+  price: number; // cents
+  lowConfidence: boolean;
+}
+
+export interface ConfirmCharge {
+  type: SharedChargeType;
+  amount: number; // cents
+}
+
+export async function confirmBill(
+  billId: string,
+  items: ConfirmItem[],
+  charges: ConfirmCharge[]
+): Promise<void> {
+  const batch = writeBatch(db);
+
+  const itemsRef = collection(db, "bills", billId, "items");
+  for (const item of items) {
+    batch.set(doc(itemsRef), { ...item, selections: {} });
+  }
+
+  const chargesRef = collection(db, "bills", billId, "sharedCharges");
+  for (const charge of charges) {
+    batch.set(doc(chargesRef), charge);
+  }
+
+  batch.update(doc(db, "bills", billId), { status: "open" });
+
+  await batch.commit();
+
+  // Phase 7 will replace this with a real FCM push to all household members.
+  console.log("[splitly] bill confirmed, stub notification fired:", billId);
 }
 
 export async function createBill(user: User, householdId: string, parsed: ParsedBill): Promise<string> {
