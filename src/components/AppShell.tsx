@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header
         className="fixed inset-x-0 top-0 z-20 border-b border-border"
         style={{
-          background: "rgba(250,250,249,0.92)",
+          background: "rgba(244,242,239,0.92)",
           backdropFilter: "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
         }}

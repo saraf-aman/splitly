@@ -53,7 +53,7 @@
  * No dark mode / prefers-color-scheme handling by deliberate product decision.
  */
 :root {
-  --background: #fafaf9;
+  --background: #f4f2ef;
   --foreground: #1a1a1f;
   --card: #ffffff;
   --card-foreground: #1a1a1f;
