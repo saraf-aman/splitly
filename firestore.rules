@@ -89,9 +89,19 @@ service cloud.firestore {
       allow create: if isHouseholdMember(request.resource.data.householdId);
 
       match /items/{itemId} {
-        allow read, write: if isHouseholdMember(
+        allow read, create, delete: if isHouseholdMember(
           get(/databases/$(database)/documents/bills/$(billId)).data.householdId
         );
+        // update: household members may only change their own key inside `selections`.
+        // The bill uploader (uploadedBy) may change any member's key.
+        allow update: if isHouseholdMember(
+            get(/databases/$(database)/documents/bills/$(billId)).data.householdId
+          ) && (
+            get(/databases/$(database)/documents/bills/$(billId)).data.uploadedBy == request.auth.uid
+            ||
+            request.resource.data.selections.diff(resource.data.selections)
+              .affectedKeys().hasOnly([request.auth.uid])
+          );
       }
 
       match /sharedCharges/{chargeId} {

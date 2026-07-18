@@ -60,7 +60,7 @@ export interface BillItem {
   name: string;
   price: number; // cents
   lowConfidence: boolean;
-  selections: Record<string, { included: boolean; shares: number }>; // keyed by userId
+  selections: Record<string, { included: boolean; shares: number; setBy: string }>; // keyed by userId
 }
 
 export type SharedChargeType = "tax" | "tip" | "service_charge" | "other";

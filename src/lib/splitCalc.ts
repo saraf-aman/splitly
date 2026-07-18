@@ -35,7 +35,7 @@ function allocateByShares(
 
 // Splits `amount` equally among `uids`. Extra cent(s) go to the first N uids.
 // Invariant: sum(returned values) === amount (always, no lost cents).
-function allocateEqually(amount: number, uids: string[]): Record<string, number> {
+export function allocateEqually(amount: number, uids: string[]): Record<string, number> {
   const n = uids.length;
   if (n === 0) return {};
   const base = Math.floor(amount / n);

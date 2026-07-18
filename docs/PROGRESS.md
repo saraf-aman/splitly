@@ -5,9 +5,9 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 6.4 — Bill-owner override (Firestore rules + interactive grid cells for uploader)
-- **Phase 5 progress:** complete — 5.1 through 5.5 all done
-- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen)
+- **Next step:** 7.1 — FCM setup (notification permission, device token, store on member doc)
+- **Phase 6 progress:** complete — 6.1 through 6.4 all done
+- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6)
 - **Gemini model:** `gemini-flash-lite-latest` (speed > accuracy to stay within Vercel Hobby 10s limit)
@@ -23,6 +23,13 @@ _Entry template:_
 ```
 
 ---
+
+## 6.4 — Bill-owner override  (2026-07-18)
+- Built: Tightened `firestore.rules` items `update` rule — non-uploaders may only change keys in `selections` that belong to their own uid (enforced via `.diff().affectedKeys().hasOnly([request.auth.uid])`); the bill's `uploadedBy` may change any member's key. Updated `updateItemSelection` in `src/lib/bills.ts` to accept an optional `setBy` param (defaults to `uid`; uploader passes their own uid when overriding). Added `setBy` field to `BillItem.selections` type in `src/types/firestore.ts`. Grid is now purely informational (no cell interaction for anyone) — uploader sees a small "✏ Edit" button in each other member's column header. Clicking it navigates to `/bills/[billId]/select?as=[memberId]`. The select page reads the `?as` search param; if valid (viewer is uploader, target is a different member), it enters override mode: amber banner "Editing [Name]'s selections on their behalf", all reads/writes target the member's selections with `setBy: uploaderUid`, confirm button replaced by "Done editing" → back to grid (no `confirmedBy` write). Shares stepper works identically in override mode. Cell color in grid: primary for self-set, amber-500 for uploader-set (`setBy !== m.id`), foreground for neither.
+- Also added shared charges rows to the grid between items and the totals row: "SHARED CHARGES" section header, one row per charge with lock icon + charge name + total amount in the item column, and per-member equal-split amount in each member column. Exported `allocateEqually` from `splitCalc.ts` for this per-charge breakdown.
+- Files: `firestore.rules`, `src/lib/bills.ts`, `src/app/bills/[billId]/grid/page.tsx`, `src/app/bills/[billId]/select/page.tsx`, `src/types/firestore.ts`, `src/lib/splitCalc.ts`
+- Deviations: Initial implementation used a per-cell bottom sheet; replaced after user feedback with the `?as=memberId` redirect approach — more intuitive (familiar UI, no hidden gestures), handles shares naturally, keeps grid read-only.
+- Verified: Grid shows "✏ Edit" in unconfirmed Aman's column header → click navigates to select?as=[id] with amber banner + contextual subtitle → checkboxes reflect target member's real selections → "Done editing" returns to grid → member confirmation status unchanged. BAG cell shows amber ✓ (setBy ≠ memberId). Totals: confirmed Aman `$6.96`, unconfirmed Aman `~$1.22`. ✓
 
 ## 6.3 — Per-person totals row on grid  (2026-07-18)
 - Built: Added `useSharedCharges` to grid page, computed `calculateSplit(items, charges, memberIds)` after all data is loaded, rendered a `<tfoot>` row with double top border. Confirmed members show exact total (`$X.XX`); unconfirmed show `~$X.XX`. Guarded `calculateSplit` behind `memberIds.length > 0` because `useMembers` returns `[]` before Firestore responds — without the guard the runtime invariant assertion threw immediately (caught in browser verification). Also caught in the same session: the runtime assertion in `calculateSplit` correctly fired on a real mismatch (195¢ of charges unallocated because members hadn't loaded yet), proving the cent-integrity guardrail works.

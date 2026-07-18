@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Lock, MoreVertical, X } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Lock, MoreVertical, Pencil, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges, updateItemSelection, confirmSelections } from "@/lib/bills";
 import { useMembers } from "@/lib/household";
@@ -21,6 +21,7 @@ const CHARGE_LABELS: Record<SharedChargeType, string> = {
 export default function SelectItemsPage() {
   const { billId } = useParams<{ billId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { bill, loading: billLoading } = useBill(billId);
   const { items, loading: itemsLoading } = useBillItems(billId);
@@ -32,14 +33,29 @@ export default function SelectItemsPage() {
   const loading = billLoading || itemsLoading || chargesLoading;
   const uid = user?.uid ?? "";
 
+  // Override mode: uploader editing another member's selections via ?as=memberId
+  const asParam = searchParams.get("as");
+  const isUploader = bill?.uploadedBy === uid;
+  const overrideMemberId = isUploader && asParam && asParam !== uid ? asParam : null;
+  const targetUid = overrideMemberId ?? uid;
+  const overrideMember = overrideMemberId ? members.find((m) => m.id === overrideMemberId) : null;
+
   function handleToggle(itemId: string, current: { included: boolean; shares: number }) {
-    updateItemSelection(billId, itemId, uid, { ...current, included: !current.included });
+    updateItemSelection(
+      billId, itemId, targetUid,
+      { ...current, included: !current.included },
+      overrideMemberId ? uid : undefined,
+    );
   }
 
   function handleShares(itemId: string, current: { included: boolean; shares: number }, delta: number) {
     const next = Math.max(1, current.shares + delta);
     if (next === current.shares) return;
-    updateItemSelection(billId, itemId, uid, { ...current, shares: next });
+    updateItemSelection(
+      billId, itemId, targetUid,
+      { ...current, shares: next },
+      overrideMemberId ? uid : undefined,
+    );
   }
 
   if (loading) {
@@ -76,19 +92,33 @@ export default function SelectItemsPage() {
   }
 
   const sharesItem = sharesItemId ? items.find((i) => i.id === sharesItemId) : null;
-  const sheetSel = sharesItem?.selections[uid];
-  const sheetIncluded = sheetSel?.included ?? true;
+  const sheetSel = sharesItem?.selections[targetUid];
+  const sheetIncluded = sheetSel?.included ?? (!overrideMemberId);
   const sheetShares = sheetSel?.shares ?? 1;
+
+  const overrideName = overrideMember?.displayName.split(" ")[0] ?? "them";
 
   return (
     <div className="flex flex-1 flex-col bg-background">
       <div className="flex-1 overflow-y-auto px-4 py-6">
+        {/* Override mode banner */}
+        {overrideMember && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-100 px-4 py-3">
+            <Pencil className="size-4 shrink-0 text-amber-700" />
+            <p className="text-caption text-amber-900">
+              Editing <span className="font-semibold">{overrideMember.displayName.split(" ")[0]}</span>&apos;s selections on their behalf
+            </p>
+          </div>
+        )}
+
         <div className="mb-4">
           <h1 className="text-heading text-foreground">
             {bill.restaurantOrStoreName ?? "Select your items"}
           </h1>
           <p className="text-caption text-muted-foreground mt-0.5">
-            Check off what you had. Tap ⋮ to split an item with someone outside the household.
+            {overrideMember
+              ? `Check off what ${overrideName} had. Tap ⋮ to adjust their share count.`
+              : "Check off what you had. Tap ⋮ to split an item with someone outside the household."}
           </p>
         </div>
 
@@ -107,15 +137,19 @@ export default function SelectItemsPage() {
             </p>
           )}
           {items.map((item) => {
-            const sel = item.selections[uid];
-            const included = sel?.included ?? true;
+            const sel = item.selections[targetUid];
+            // Override mode defaults to unchecked — only explicitly written
+            // selections show as checked, so every owner tap is a real write.
+            const included = sel?.included ?? (!overrideMemberId);
             const shares = sel?.shares ?? 1;
+            // Amber accent when the uploader set this entry, teal when self-set
+            const uploaderSet = !!sel?.setBy && sel.setBy !== targetUid;
             return (
               <Card key={item.id}>
                 <CardContent className="flex items-center gap-3 px-4 py-3">
                   <input
                     type="checkbox"
-                    className="size-5 shrink-0 accent-primary cursor-pointer"
+                    className={`size-5 shrink-0 cursor-pointer ${uploaderSet ? "accent-amber-700" : "accent-primary"}`}
                     checked={included}
                     onChange={() => handleToggle(item.id, { included, shares })}
                   />
@@ -125,7 +159,6 @@ export default function SelectItemsPage() {
                   <span className="w-16 text-right font-money text-sm text-muted-foreground tabular-nums">
                     {formatCents(item.price)}
                   </span>
-                  {/* Vertical kebab — opens shares bottom sheet */}
                   <button
                     className={`relative flex size-8 shrink-0 items-center justify-center rounded transition-opacity ${
                       included ? "text-muted-foreground hover:bg-secondary" : "opacity-30 cursor-not-allowed"
@@ -175,38 +208,37 @@ export default function SelectItemsPage() {
 
       {/* Sticky bottom bar */}
       <div className="border-t bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-        {(() => {
-          const confirmedBy = bill?.confirmedBy ?? {};
-          const confirmedNames = members
-            .filter((m) => confirmedBy[m.id])
-            .map((m) => m.displayName.split(" ")[0]);
-          return confirmedNames.length > 0 ? (
-            <p className="mb-2 text-center text-caption text-muted-foreground">
-              Done: {confirmedNames.join(", ")}
-            </p>
-          ) : null;
-        })()}
-        <Button
-          className="w-full"
-          variant={bill?.confirmedBy?.[uid] ? "secondary" : "default"}
-          onClick={() => confirmSelections(billId, uid)}
-        >
-          {bill?.confirmedBy?.[uid] ? "Selections confirmed ✓" : "Confirm my selections"}
-        </Button>
-        <Button
-          variant="outline"
-          className="mt-2 w-full"
-          onClick={() => router.push(`/bills/${billId}/grid`)}
-        >
-          View split grid
-        </Button>
-        <Button
-          variant="ghost"
-          className="mt-2 w-full text-muted-foreground"
-          onClick={() => router.push("/")}
-        >
-          Back to home
-        </Button>
+        {overrideMember ? (
+          /* Override mode: done editing goes back to grid, no confirm */
+          <Button
+            variant="outline"
+            className="w-full bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200 hover:text-amber-900"
+            onClick={() => router.push(`/bills/${billId}/grid`)}
+          >
+            Save
+          </Button>
+        ) : (
+          /* Normal mode */
+          <>
+            <Button
+              className="w-full"
+              variant="default"
+              onClick={async () => {
+                await confirmSelections(billId, uid, items);
+                router.push(`/bills/${billId}/grid`);
+              }}
+            >
+              Confirm
+            </Button>
+            <Button
+              variant="ghost"
+              className="mt-2 w-full text-muted-foreground"
+              onClick={() => router.push("/")}
+            >
+              Back to home
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Shares bottom sheet */}
@@ -230,7 +262,9 @@ export default function SelectItemsPage() {
               </button>
             </div>
             <p className="mb-6 text-caption text-muted-foreground">
-              Covering someone outside the household? Increase this to pay for extra portions — e.g. set to 2 if you&apos;re paying for yourself and a friend.
+              {overrideMember
+                ? `Is ${overrideName} covering someone outside the household? Increase this — e.g. set to 2 if they're paying for themselves and a friend.`
+                : "Covering someone outside the household? Increase this to pay for extra portions — e.g. set to 2 if you're paying for yourself and a friend."}
             </p>
             <div className="flex items-center justify-center gap-8">
               <button
@@ -253,7 +287,11 @@ export default function SelectItemsPage() {
               </button>
             </div>
             <p className="mt-3 text-center text-caption text-muted-foreground">
-              {sheetShares === 1 ? "just you" : `you + ${sheetShares - 1} extra${sheetShares - 1 > 1 ? " people" : " person"}`}
+              {sheetShares === 1
+                ? (overrideMember ? `just ${overrideName}` : "just you")
+                : overrideMember
+                ? `${overrideName} + ${sheetShares - 1} extra${sheetShares - 1 > 1 ? " people" : " person"}`
+                : `you + ${sheetShares - 1} extra${sheetShares - 1 > 1 ? " people" : " person"}`}
             </p>
           </div>
         </>

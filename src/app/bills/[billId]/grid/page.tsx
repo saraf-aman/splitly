@@ -1,13 +1,21 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { Check, Clock } from "lucide-react";
+import { Check, Clock, Lock, Pencil } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges } from "@/lib/bills";
 import { useMembers } from "@/lib/household";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
-import { calculateSplit } from "@/lib/splitCalc";
+import { calculateSplit, allocateEqually } from "@/lib/splitCalc";
+import type { SharedChargeType } from "@/types/firestore";
+
+const CHARGE_LABELS: Record<SharedChargeType, string> = {
+  tax: "Tax",
+  tip: "Tip",
+  service_charge: "Service charge",
+  other: "Other",
+};
 
 export default function GridPage() {
   const { billId } = useParams<{ billId: string }>();
@@ -42,6 +50,7 @@ export default function GridPage() {
 
   const confirmedBy = bill.confirmedBy ?? {};
   const confirmedCount = members.filter((m) => confirmedBy[m.id]).length;
+  const isUploader = bill.uploadedBy === uid;
 
   const memberIds = members.map((m) => m.id);
   // useMembers has no loading flag — a household always has ≥1 member,
@@ -91,16 +100,28 @@ export default function GridPage() {
                 {members.map((m) => {
                   const confirmed = confirmedBy[m.id];
                   const firstName = m.displayName.split(" ")[0];
+                  const canEdit = isUploader && m.id !== uid;
                   return (
                     <th
                       key={m.id}
-                      className={`min-w-[64px] px-2 py-2.5 text-center text-caption font-medium ${
+                      className={`min-w-[72px] px-2 py-2 text-center text-caption font-medium ${
                         confirmed ? "text-foreground" : "bg-muted/30 text-muted-foreground"
                       }`}
                     >
-                      <div className="flex items-center justify-center gap-1">
-                        {!confirmed && <Clock className="size-3 shrink-0" />}
-                        <span className="truncate">{firstName}</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center justify-center gap-1">
+                          {!confirmed && <Clock className="size-3 shrink-0" />}
+                          <span className="truncate">{firstName}</span>
+                        </div>
+                        {canEdit && (
+                          <button
+                            className="flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground hover:bg-secondary"
+                            onClick={() => router.push(`/bills/${billId}/select?as=${m.id}`)}
+                          >
+                            <Pencil className="size-2.5" />
+                            Edit
+                          </button>
+                        )}
                       </div>
                     </th>
                   );
@@ -137,28 +158,33 @@ export default function GridPage() {
                   {members.map((m) => {
                     const confirmed = confirmedBy[m.id];
                     const sel = item.selections[m.id];
-                    const included = sel?.included ?? false;
+                    // Confirmed members who never explicitly toggled an item
+                    // saw it as checked (the select screen default) and confirmed
+                    // that view — so treat missing entries as included for them.
+                    const included = sel?.included ?? (confirmed);
                     const shares = sel?.shares ?? 1;
                     const isSelf = m.id === uid;
+                    // setBy !== m.id means the uploader wrote this entry on the member's behalf
+                    const uploaderSet = sel?.setBy && sel.setBy !== m.id;
 
                     let cellContent: React.ReactNode;
-                    if (!sel) {
-                      cellContent = <span className="text-muted-foreground/40">—</span>;
-                    } else if (included) {
+                    if (!sel || !included) {
+                      cellContent = <span className="text-muted-foreground/30">—</span>;
+                    } else {
                       cellContent = (
                         <span
-                          className={`inline-flex items-center gap-0.5 font-medium ${
-                            isSelf ? "text-primary" : "text-foreground"
+                          className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            isSelf
+                              ? "bg-green-500 text-white"
+                              : uploaderSet
+                              ? "bg-amber-700 text-white"
+                              : "bg-muted text-foreground"
                           }`}
                         >
-                          <Check className="size-3.5 shrink-0" />
-                          {shares > 1 && (
-                            <span className="text-xs">×{shares}</span>
-                          )}
+                          <Check className="size-3 shrink-0" />
+                          {shares > 1 && <span>×{shares}</span>}
                         </span>
                       );
-                    } else {
-                      cellContent = <span className="text-muted-foreground/40">—</span>;
                     }
 
                     return (
@@ -173,6 +199,51 @@ export default function GridPage() {
                 </tr>
               ))}
             </tbody>
+
+            {/* Shared charges — always split equally among all members */}
+            {charges.length > 0 && memberIds.length > 0 && (
+              <tbody>
+                <tr>
+                  <td
+                    colSpan={members.length + 1}
+                    className="sticky left-0 z-10 bg-muted/20 px-4 pt-3 pb-1"
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Shared charges
+                    </span>
+                  </td>
+                </tr>
+                {charges.map((charge) => {
+                  const alloc = allocateEqually(charge.amount, memberIds);
+                  return (
+                    <tr key={charge.id} className="bg-muted/20">
+                      <td
+                        className="sticky left-0 z-10 bg-muted/20 min-w-[130px] max-w-[180px] px-4 py-2.5"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Lock className="size-3 shrink-0 text-muted-foreground" />
+                          <span className="text-body text-muted-foreground leading-snug">
+                            {CHARGE_LABELS[charge.type]}
+                          </span>
+                        </div>
+                        <span className="font-mono text-xs text-muted-foreground/60 tabular-nums">
+                          {formatCents(charge.amount)}
+                        </span>
+                      </td>
+                      {members.map((m) => (
+                        <td
+                          key={m.id}
+                          className="px-2 py-2.5 text-center font-mono text-xs text-muted-foreground tabular-nums"
+                        >
+                          {formatCents(alloc[m.id] ?? 0)}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            )}
+
             <tfoot>
               <tr className="border-t-2 border-border">
                 <td

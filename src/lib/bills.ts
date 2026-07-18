@@ -40,10 +40,31 @@ export async function parseBillImage(image: File): Promise<ParsedBill> {
   return res.json();
 }
 
-export async function confirmSelections(billId: string, uid: string): Promise<void> {
-  await updateDoc(doc(db, "bills", billId), {
+export async function confirmSelections(
+  billId: string,
+  uid: string,
+  items: Array<{ id: string; selections: Record<string, { included: boolean; shares: number; setBy: string }> }>,
+): Promise<void> {
+  const batch = writeBatch(db);
+
+  // Write the effective selection for every item (including untouched defaults)
+  // so the grid shows accurate data for confirmed members.
+  for (const item of items) {
+    const sel = item.selections[uid];
+    batch.update(doc(db, "bills", billId, "items", item.id), {
+      [`selections.${uid}`]: {
+        included: sel?.included ?? true,
+        shares: sel?.shares ?? 1,
+        setBy: uid,
+      },
+    });
+  }
+
+  batch.update(doc(db, "bills", billId), {
     [`confirmedBy.${uid}`]: true,
   });
+
+  await batch.commit();
 }
 
 export async function updateItemSelection(
@@ -51,9 +72,10 @@ export async function updateItemSelection(
   itemId: string,
   uid: string,
   selection: { included: boolean; shares: number },
+  setBy?: string, // defaults to uid; pass the uploader's uid when overriding another member
 ): Promise<void> {
   await updateDoc(doc(db, "bills", billId, "items", itemId), {
-    [`selections.${uid}`]: { ...selection, setBy: uid },
+    [`selections.${uid}`]: { ...selection, setBy: setBy ?? uid },
   });
 }
 
