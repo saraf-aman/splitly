@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 8.4 — Routing rework: flat routes become `/households/[householdId]/...`
+- **Next step:** 8.5 — Picker/landing screen: lists all households, auto-enters if exactly one, reuses create/join UI for "add another"
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -23,6 +23,13 @@ _Entry template:_
 ```
 
 ---
+
+## 8.4 — Routing rework  (2026-07-18)
+- New nested routes under `src/app/households/[householdId]/`: `page.tsx` (home), `bills/new/page.tsx`, `bills/[billId]/review`, `bills/[billId]/select`, `bills/[billId]/grid`, `household/page.tsx`. All read `householdId` from `useParams<{ householdId: string }>()`.
+- Old flat routes (`/`, `/bills/...`, `/household`) replaced with redirect shim components that call `useUserHousehold()` and redirect to the new nested path — handles stale bookmarks and in-flight FCM notification links gracefully.
+- `AppShell` reworked: hides the tab bar when no `[householdId]` is present in the pathname (covers `/`, `/onboarding`, `/households` picker); builds tab `href`s dynamically from the parsed `hhId`.
+- `HouseholdGate` updated: `clearRemovedHouseholdPointer` now takes `householdId` as a param (was global); redirect on removal goes to `/households/${householdId}` instead of `/`.
+- Verified live: all three tabs route to correct household-scoped URLs; Bills tab → `/households/{id}/bills/new`; Household tab → `/households/{id}/household`.
 
 ## 8.3 — Hooks rework  (2026-07-18)
 - Added `useUserHouseholds(): { loading: boolean; householdIds: string[] }` to `src/lib/household.ts` — owns the Firestore listener with legacy `householdId` fallback (same fallback as before, now in one place)

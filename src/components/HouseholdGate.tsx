@@ -52,7 +52,7 @@ export function HouseholdGate({ children }: { children: React.ReactNode }) {
       router.replace(ONBOARDING_PATH);
     }
     if (householdId && isOnboarding) {
-      router.replace("/");
+      router.replace(`/households/${householdId}`);
     }
   }, [user, loading, householdId, isOnboarding, router, wasRemoved]);
 
@@ -82,7 +82,7 @@ export function HouseholdGate({ children }: { children: React.ReactNode }) {
   }
 
   if (householdId && isOnboarding) {
-    return null;
+    return null; // redirect to /households/${householdId} in flight
   }
 
   return <>{children}</>;
