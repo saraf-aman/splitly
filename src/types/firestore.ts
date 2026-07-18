@@ -2,9 +2,9 @@ import type { Timestamp } from "firebase/firestore";
 
 export type Role = "admin" | "guest";
 
-// users/{userId} — reverse index from auth uid to the user's household, for post-login routing
+// users/{userId} — reverse index from auth uid to the user's households, for post-login routing
 export interface UserDoc {
-  householdId: string;
+  householdIds: string[];
 }
 
 // households/{householdId}

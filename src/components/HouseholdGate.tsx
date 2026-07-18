@@ -43,7 +43,7 @@ export function HouseholdGate({ children }: { children: React.ReactNode }) {
       // instead of continuing to show household data we can no longer read.
       if (!clearing.current) {
         clearing.current = true;
-        void clearRemovedHouseholdPointer(user);
+        void clearRemovedHouseholdPointer(user, householdId!);
       }
       return;
     }
