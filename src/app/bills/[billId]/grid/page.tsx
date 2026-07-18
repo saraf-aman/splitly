@@ -3,10 +3,11 @@
 import { useParams, useRouter } from "next/navigation";
 import { Check, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useBill, useBillItems } from "@/lib/bills";
+import { useBill, useBillItems, useSharedCharges } from "@/lib/bills";
 import { useMembers } from "@/lib/household";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
+import { calculateSplit } from "@/lib/splitCalc";
 
 export default function GridPage() {
   const { billId } = useParams<{ billId: string }>();
@@ -14,9 +15,10 @@ export default function GridPage() {
   const { user } = useAuth();
   const { bill, loading: billLoading } = useBill(billId);
   const { items, loading: itemsLoading } = useBillItems(billId);
+  const { charges, loading: chargesLoading } = useSharedCharges(billId);
   const members = useMembers(bill?.householdId ?? null);
 
-  const loading = billLoading || itemsLoading;
+  const loading = billLoading || itemsLoading || chargesLoading;
   const uid = user?.uid ?? "";
 
   if (loading) {
@@ -40,6 +42,12 @@ export default function GridPage() {
 
   const confirmedBy = bill.confirmedBy ?? {};
   const confirmedCount = members.filter((m) => confirmedBy[m.id]).length;
+
+  const memberIds = members.map((m) => m.id);
+  // useMembers has no loading flag — a household always has ≥1 member,
+  // so empty means Firestore hasn't responded yet. Don't run the split
+  // calculation until members are available or charges would be dropped.
+  const totals = memberIds.length > 0 ? calculateSplit(items, charges, memberIds) : null;
 
   return (
     <div className="flex flex-1 flex-col bg-background">
@@ -165,6 +173,37 @@ export default function GridPage() {
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border">
+                <td
+                  className="sticky left-0 z-10 bg-card px-4 py-3"
+                  style={{ borderTop: "2px solid hsl(var(--border))" }}
+                >
+                  <span className="text-body font-semibold text-foreground">Total</span>
+                </td>
+                {members.map((m) => {
+                  const confirmed = confirmedBy[m.id];
+                  const total = totals?.[m.id] ?? 0;
+                  const display = !totals
+                    ? "…"
+                    : confirmed
+                    ? formatCents(total)
+                    : `~${formatCents(total)}`;
+                  return (
+                    <td
+                      key={m.id}
+                      className={`px-2 py-3 text-center font-semibold tabular-nums ${
+                        confirmed
+                          ? "text-foreground font-mono"
+                          : "text-muted-foreground font-mono"
+                      } ${!confirmed ? "bg-muted/30" : ""}`}
+                    >
+                      {display}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>

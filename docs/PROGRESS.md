@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 6.3 — Final per-person total summary row below the grid
+- **Next step:** 6.4 — Bill-owner override (Firestore rules + interactive grid cells for uploader)
 - **Phase 5 progress:** complete — 5.1 through 5.5 all done
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
@@ -23,6 +23,12 @@ _Entry template:_
 ```
 
 ---
+
+## 6.3 — Per-person totals row on grid  (2026-07-18)
+- Built: Added `useSharedCharges` to grid page, computed `calculateSplit(items, charges, memberIds)` after all data is loaded, rendered a `<tfoot>` row with double top border. Confirmed members show exact total (`$X.XX`); unconfirmed show `~$X.XX`. Guarded `calculateSplit` behind `memberIds.length > 0` because `useMembers` returns `[]` before Firestore responds — without the guard the runtime invariant assertion threw immediately (caught in browser verification). Also caught in the same session: the runtime assertion in `calculateSplit` correctly fired on a real mismatch (195¢ of charges unallocated because members hadn't loaded yet), proving the cent-integrity guardrail works.
+- Files: `src/app/bills/[billId]/grid/page.tsx`
+- Deviations: none
+- Verified: grid showed "Total" row — confirmed Aman $6.96 (exact), unconfirmed Aman ~$0.97 (tilde). $6.96 + $0.97 = $7.93 = 598¢ item + 195¢ charges. ✓
 
 ## 6.2 — Split calculation module  (2026-07-18)
 - Built: Pure function `calculateSplit(items, charges, memberIds)` in `src/lib/splitCalc.ts`. Item costs divided proportionally by shares using largest-remainder method (floor each member's share, give extra cents to members with highest fractional loss). Shared charges split equally among all memberIds regardless of selections. Sum of all per-person totals is guaranteed to equal the sum of all item prices + all charge amounts. Installed Vitest (`npm install -D vitest`) + added `"test": "vitest run"` script + `vitest.config.ts`.
