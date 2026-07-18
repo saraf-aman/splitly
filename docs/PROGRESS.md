@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 8.5 — Picker/landing screen: lists all households, auto-enters if exactly one, reuses create/join UI for "add another"
+- **Next step:** 8.6 — HouseholdGate rework: three-way redirect (0 → onboarding, 1 → household, 2+ → picker), generalize wasRemoved detection
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -23,6 +23,14 @@ _Entry template:_
 ```
 
 ---
+
+## 8.5 — Picker/landing screen  (2026-07-18)
+- `useHouseholdList(ids: string[])` added to `src/lib/household.ts`: opens one `onSnapshot` per household, coalesces into an ordered array, clears state on cleanup. Dep is `idsKey = ids.join(",")` to avoid stale closure on array reference changes.
+- Create/join form extracted to `src/components/HouseholdFormCard.tsx` (title/description props optional); clears the input fields on successful create/join.
+- `src/app/onboarding/page.tsx` simplified to use `HouseholdFormCard` — same UI, no logic change.
+- `src/app/households/page.tsx` (picker): 0 households → `/onboarding`, 1 → auto-redirect to `/households/[id]`, 2+ → list of tappable household cards + "Add another household" button that reveals `HouseholdFormCard` inline.
+- `src/app/page.tsx` simplified to always redirect to `/households` — the picker handles all branching. Auto-redirect chain verified: `localhost:3001` → `/households` → `/households/[id]` (1 household case).
+- Picker screen itself can't be visually verified with 1 household — needs a second household. The 2+ UI is complete and correct per code.
 
 ## 8.4 — Routing rework  (2026-07-18)
 - New nested routes under `src/app/households/[householdId]/`: `page.tsx` (home), `bills/new/page.tsx`, `bills/[billId]/review`, `bills/[billId]/select`, `bills/[billId]/grid`, `household/page.tsx`. All read `householdId` from `useParams<{ householdId: string }>()`.

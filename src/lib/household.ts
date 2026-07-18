@@ -84,6 +84,29 @@ export function useUserHousehold(): UserHouseholdState {
   return { loading, householdId: householdIds[0] ?? null };
 }
 
+export function useHouseholdList(ids: string[]): (Household & { id: string })[] {
+  const idsKey = ids.join(",");
+  const [households, setHouseholds] = useState<(Household & { id: string })[]>([]);
+
+  useEffect(() => {
+    if (!ids.length) return;
+    const results = new Map<string, Household & { id: string }>();
+    const flush = () =>
+      setHouseholds(ids.flatMap((id) => { const h = results.get(id); return h ? [h] : []; }));
+    const unsubs = ids.map((id) =>
+      onSnapshot(
+        doc(db, "households", id),
+        (snap) => { if (snap.exists()) results.set(id, { id: snap.id, ...(snap.data() as Household) }); else results.delete(id); flush(); },
+        () => { results.delete(id); flush(); },
+      )
+    );
+    return () => { unsubs.forEach((u) => u()); setHouseholds([]); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey]);
+
+  return households;
+}
+
 export function useHousehold(householdId: string | null): (Household & { id: string }) | null {
   const [household, setHousehold] = useState<(Household & { id: string }) | null>(null);
 
