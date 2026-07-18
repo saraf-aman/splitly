@@ -40,6 +40,17 @@ export async function parseBillImage(image: File): Promise<ParsedBill> {
   return res.json();
 }
 
+export async function updateItemSelection(
+  billId: string,
+  itemId: string,
+  uid: string,
+  selection: { included: boolean; shares: number },
+): Promise<void> {
+  await updateDoc(doc(db, "bills", billId, "items", itemId), {
+    [`selections.${uid}`]: { ...selection, setBy: uid },
+  });
+}
+
 export async function getBill(billId: string): Promise<Bill | null> {
   const snap = await getDoc(doc(db, "bills", billId));
   return snap.exists() ? (snap.data() as Bill) : null;

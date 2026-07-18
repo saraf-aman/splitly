@@ -5,15 +5,15 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 5.3 — wire up writes: toggling checkbox / changing shares updates `selections[uid]` in Firestore, live across all clients
-- **Phase 5 progress:** 5.1 + 5.2 done (`/bills/[billId]/select` — items with checkbox+shares display; shared charges as locked dashed rows with lock icon below items)
+- **Next step:** 5.4 — per-user "done" indicator: "Confirm my selections" button in the sticky bottom bar; writes a `confirmedBy` map on the bill doc (`confirmedBy[uid] = true`); informational only, doesn't block others
+- **Phase 5 progress:** 5.1 + 5.2 + 5.3 done (`/bills/[billId]/select` — full item list with realtime checkbox+shares writes; shared charges as locked rows; `selections[uid] = { included, shares, setBy: uid }` written to each item on toggle)
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6)
 - **Gemini model:** `gemini-flash-lite-latest` (speed > accuracy to stay within Vercel Hobby 10s limit)
 - **Money:** always integer cents everywhere — display formatting only in UI
 - **Key rules:** `"use client"` on anything importing `firebase.ts`; `persistentLocalCache` = IndexedDB browser-only; `react-hooks/set-state-in-effect` lint rule enforced (no setState synchronously in effect bodies — derive from params instead)
-- **For 5.3:** wire up checkbox toggle + shares stepper in `select/page.tsx` to write `selections[uid] = { included, shares, setBy: uid }` on each item doc; optimistic local state, Firestore as source of truth for other clients; `setBy` field required from first write (Phase 6.4 attribution)
+- **For 5.4:** add `confirmedBy` field to bill doc schema (map of uid→bool). Bottom bar already has a stub area (see comment in `select/page.tsx` line 168). `confirmSelections(billId, uid)` in `bills.ts` writes `confirmedBy.${uid}: true` with dot-notation. Show names of confirmed members in the UI (need `useMembers` from `household.ts`). The "Back to home" button should stay as a secondary action.
 
 ---
 
@@ -22,6 +22,15 @@ _Entry template:_
 ## [Step] — [title]  (YYYY-MM-DD)
 - Built / Files / Deviations / Next session should know
 ```
+
+---
+
+## 5.3 — Wire up Firestore writes on select screen  (2026-07-18)
+- Built: `updateItemSelection(billId, itemId, uid, { included, shares })` in `src/lib/bills.ts` — writes `selections.${uid} = { included, shares, setBy: uid }` with dot-notation `updateDoc` so other users' entries are never overwritten. `handleToggle` and `handleShares` in `select/page.tsx` call it fire-and-forget; Firestore `onSnapshot` drives the displayed state (no local optimistic state needed — snapshot round-trip is fast enough). `setBy: uid` stored from first write onward for Phase 6.4 attribution.
+- Files: `src/lib/bills.ts`, `src/app/bills/[billId]/select/page.tsx`
+- Deviations: none
+- Verified: checkbox click on bill `vxOkmvq2ClRgJn97wtRT` (MAGGI NOODLES) unchecked visually and `updateItemSelection` console log confirmed correct uid/billId/itemId — no permission errors. Debug log then removed.
+- Note: `persistentLocalCache` in Firestore means reads are served from IndexedDB without server-side rule evaluation — so a bill that only exists locally in cache will show items but writes will fail with "Missing or insufficient permissions." Always use a real Firestore bill doc for write testing.
 
 ---
 

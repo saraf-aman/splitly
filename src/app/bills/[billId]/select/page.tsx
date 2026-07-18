@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useBill, useBillItems, useSharedCharges } from "@/lib/bills";
+import { useBill, useBillItems, useSharedCharges, updateItemSelection } from "@/lib/bills";
 import type { SharedChargeType } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +29,16 @@ export default function SelectItemsPage() {
 
   const loading = billLoading || itemsLoading || chargesLoading;
   const uid = user?.uid ?? "";
+
+  function handleToggle(itemId: string, current: { included: boolean; shares: number }) {
+    updateItemSelection(billId, itemId, uid, { ...current, included: !current.included });
+  }
+
+  function handleShares(itemId: string, current: { included: boolean; shares: number }, delta: number) {
+    const next = Math.max(1, current.shares + delta);
+    if (next === current.shares) return;
+    updateItemSelection(billId, itemId, uid, { ...current, shares: next });
+  }
 
   if (loading) {
     return (
@@ -80,7 +90,7 @@ export default function SelectItemsPage() {
           <span className="size-5 shrink-0" />
           <span className="flex-1" />
           <span className="w-16 text-right text-caption text-muted-foreground">Price</span>
-          <span className="w-8 text-center text-caption text-muted-foreground">Shares</span>
+          <span className="w-20 text-center text-caption text-muted-foreground">Shares</span>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -96,12 +106,11 @@ export default function SelectItemsPage() {
             return (
               <Card key={item.id}>
                 <CardContent className="flex items-center gap-3 px-4 py-3">
-                  {/* Checkbox — writes wired up in 5.3 */}
                   <input
                     type="checkbox"
                     className="size-5 shrink-0 accent-primary cursor-pointer"
                     checked={included}
-                    onChange={() => {}}
+                    onChange={() => handleToggle(item.id, { included, shares })}
                   />
                   <span className="flex-1 text-body text-foreground leading-snug">
                     {item.name}
@@ -109,9 +118,19 @@ export default function SelectItemsPage() {
                   <span className="w-16 text-right font-money text-sm text-muted-foreground tabular-nums">
                     {formatCents(item.price)}
                   </span>
-                  {/* Shares display — interactive stepper added in 5.3 */}
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-secondary">
-                    <span className="font-money text-sm text-foreground">{shares}</span>
+                  <div className="flex w-20 shrink-0 items-center justify-between">
+                    <button
+                      className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary disabled:opacity-30"
+                      onClick={() => handleShares(item.id, { included, shares }, -1)}
+                      disabled={shares <= 1}
+                      aria-label="Decrease shares"
+                    >−</button>
+                    <span className="w-4 text-center font-money text-sm text-foreground">{shares}</span>
+                    <button
+                      className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary"
+                      onClick={() => handleShares(item.id, { included, shares }, 1)}
+                      aria-label="Increase shares"
+                    >+</button>
                   </div>
                 </CardContent>
               </Card>
@@ -136,8 +155,8 @@ export default function SelectItemsPage() {
                     <span className="w-16 text-right font-money text-sm text-muted-foreground tabular-nums">
                       {formatCents(charge.amount)}
                     </span>
-                    {/* Spacer to align with items' shares badge */}
-                    <div className="size-8 shrink-0" />
+                    {/* Spacer to align with items' shares stepper */}
+                    <div className="w-20 shrink-0" />
                   </CardContent>
                 </Card>
               ))}
