@@ -242,62 +242,107 @@ Originally deferred (see the Phase 1.5 progress note) as a foundational data-mod
 
 **Why Phase 8, not earlier or later:** inserted right before the (renumbered) Phase 9 "History & dashboard," because that dashboard is exactly the screen a household picker needs to sit in front of. Building the picker as its own phase first means the dashboard gets built once, correctly, against a picker that already exists — rather than being built single-household in an earlier phase and reworked later once multi-household lands.
 
-## 14. Dashboard & navigation redesign (Phase 8 + 9 visual spec)
+## 14. Navigation shell redesign (Phase 9)
 
-Agreed design direction (reviewed and approved as a Claude Artifact — https://claude.ai/code/artifact/74fc0773-2d4b-43af-aedb-2b78e0920268). Every choice below stays within the existing token system (§12) and is additive — no token values change.
+**Supersedes the original Phase 8/9 visual spec** (bottom-tab + FAB design, artifact at https://claude.ai/code/artifact/74fc0773-2d4b-43af-aedb-2b78e0920268). The design was rethought in the Phase 8 session and replaced with the spec below. Every choice stays within the existing token system (§12).
 
-### Navigation shell changes
+### Core navigation pattern
 
-Replace the current bottom tab bar (Home / Bills / Household) with:
+**Remove the bottom tab bar entirely.** Replace with a top-bar + hamburger drawer pattern — more professional, standard across mobile apps, and frees up vertical screen space for content.
 
-- **Two tabs**: Bills (receipt icon, left) and Household (people icon, right)
-- **Raised camera FAB** centered between them, elevated ~28px above the tab bar, teal background (`#2E6E6E`), white camera icon, `box-shadow: 0 4px 18px rgba(46,110,110,0.45)`. This is the app's single primary action — photographing/uploading a receipt. Currently buried as a mid-page button; the FAB makes it unmissable.
-- **Header**: household name as a tappable button ("The House ▾") left-aligned, notification bell + user avatar right-aligned. Tapping the household name opens the Phase 8.5 picker sheet. Font: 18px, 800 weight, `#1A1A1F`, letter-spacing -0.4px.
+### Top bar (all authenticated screens)
 
-### Bills feed (Phase 9.1 home screen)
+```
+┌──────────────────────────────────────┐
+│  Splitly                         ≡  │
+└──────────────────────────────────────┘
+```
 
-The home screen becomes a scrollable feed of bills, grouped into three sections with 10px uppercase section labels:
+- **Left: "Splitly" wordmark** — always a link to `/households` (the household picker). No logo mark next to it ("S Splitly" was explicitly rejected as cluttered).
+- **Right: hamburger `≡`** — opens a slide-out drawer (see below). Present on all household screens. Absent on the picker screen (see Picker section below).
+- Top bar background: `#FAFAF9` (same as page background), with a subtle 1px bottom border.
 
-| Section | Left stripe color | Condition |
+### Liquid glass home button (inner screens only)
+
+On any screen that is **inside a household but not the household home** (i.e. bill review, item select, final grid), a liquid glass pill appears **directly below the top bar on the left**, sitting just under the "Splitly" wordmark:
+
+```
+┌──────────────────────────────────────┐
+│  Splitly                         ≡  │
+│  [← ⌂]                              │  ← liquid glass pill
+├──────────────────────────────────────┤
+│         page content                 │
+└──────────────────────────────────────┘
+```
+
+- **Icon content**: left arrow (`←`) + house icon (`⌂`) — arrow signals "go back", house signals "to home", together unambiguous.
+- **Destination**: always the household home page (`/households/[householdId]`), never browser history back.
+- **Absent on**: the household home page itself (circular), the picker, onboarding, login.
+- **Liquid glass CSS**: `background: rgba(255,255,255,0.55); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 2px 8px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.6); border-radius: 999px;`
+
+### Hamburger drawer (household screens only)
+
+Slides in from the right. Contents:
+
+```
+  [Household name]        ×   ← non-clickable header
+  ─────────────────────────
+  ⌂  Home
+  ⚙  Manage                   ← admins and creators only, hidden for guests
+  ─────────────────────────
+  ⇄  Switch Household
+  ↪  Sign out
+```
+
+- "Home" → `/households/[householdId]`
+- "Manage" → `/households/[householdId]/household` — only rendered if `member.role === "admin"` (which covers creators too since their role field is also `"admin"`)
+- "Switch Household" → `/households`
+- "Sign out" → Firebase `signOut()`
+
+### Picker screen header (no hamburger)
+
+On `/households` (the picker), the hamburger is replaced with a simple sign-out icon in the top right — the only action available at this level is signing out, so a drawer would be overkill.
+
+```
+┌──────────────────────────────────────┐
+│  Splitly                        [↪]  │  ← sign-out icon, no hamburger
+└──────────────────────────────────────┘
+```
+
+### Household home page
+
+- **No top-bar FAB** — the upload action lives as a floating action button (FAB) at bottom-right of the household home page only.
+- **FAB**: teal (`#2E6E6E`) circle, camera icon, `box-shadow: 0 4px 18px rgba(46,110,110,0.45)`, fixed bottom-right. Taps to `/households/[householdId]/bills/new`.
+- **Bills feed**: scrollable list of bill cards (see §14 Bills feed section below). Empty state when no bills exist.
+
+### Bills feed (household home, Phase 9.1)
+
+Scrollable feed of all bills for the current household, newest first. Three visual sections with uppercase 10px section labels:
+
+| Section | Left stripe | Condition |
 |---|---|---|
-| **Needs your input** | Amber `#D97706` | `status === "open"` and the current user has not yet confirmed |
-| **In progress** | Gray `#D1D5DB` | `status === "open"` and the current user has confirmed but others haven't |
-| **Settled** | Teal `#2E6E6E` | All members have confirmed (`confirmedBy` count === members count) |
+| **Needs your input** | Amber `#D97706` | `status === "open"` and current user has not yet confirmed selections |
+| **In progress** | Gray `#D1D5DB` | `status === "open"` and current user confirmed but others haven't |
+| **Settled** | Teal `#2E6E6E` | All members confirmed |
 
-**Bill card anatomy** (each card: white background, 1px `#E5E7EB` border, 16px border-radius, 4px left stripe, tap → scale(0.975)):
+**Bill card anatomy** (white bg, 1px `#E5E7EB` border, 16px radius, 4px left stripe, tap → scale(0.975)):
 
 ```
 [4px stripe] | Merchant name (14px, 700)          Jul 15
-             | $94.50   ← 28px monospace, letter-spacing -1px (THE hero element)
+             | $94.50   ← 28px Geist Mono, letter-spacing -1px (hero element)
              | [status pill]  ← amber/gray/teal tinted pill, 10.5px, 700
-             | Uploaded by Meera  ← 11.5px, muted
-             | [A] [M] [S] [R]  ← 28px circular chips
+             | Uploaded by Meera  ← 11.5px muted
+             | [A] [M] [S] [R]  ← 28px member chips
 ```
 
-The **amount is the dominant visual element** on the card at 28px monospace — it is what the user actually needs at a glance. Everything else (merchant, date, meta) is secondary.
+Amount color: `#1A1A1F` when open/in-progress, `#2E6E6E` teal when settled.
 
-**Amount color by state:**
-- Needs input / in progress: `#1A1A1F` (foreground — uncertain)
-- Settled: `#2E6E6E` (teal — confirmed, celebratory)
-
-**"Your share" line** (`font-mono`, 11.5px, `#6B7280`) appears only on settled bills, below the amount, because it's only certain once everyone has confirmed.
+"Your share" line (Geist Mono, 11.5px, `#6B7280`) shown only on settled bills — only certain once everyone has confirmed.
 
 **Member chip colors:**
-| Chip state | Background | Text |
+| State | Background | Text |
 |---|---|---|
 | Confirmed (others) | `#2E6E6E` | `#FFFFFF` |
-| Confirmed (you) | `#2E6E6E` + 2px `#1A4F4F` outline-offset ring | `#FFFFFF` |
+| Confirmed (you) | `#2E6E6E` + 2px `#1A4F4F` outline ring | `#FFFFFF` |
 | Pending (others) | `#F1F0EE` | `#9CA3AF` |
-| Pending (you) | `#FEF3C7` + 1.5px `#FDE68A` outline | `#D97706` — amber self-pending draws the eye |
-
-### Household picker sheet (Phase 8.5)
-
-Triggered by tapping the household name in the header. Slides up as a bottom sheet (border-radius 26px 26px 0 0, cubic-bezier spring transition). Backdrop: `rgba(26,26,31,0.36)`.
-
-Each household entry: 44px icon tile (`#E3EEEE` background, emoji), name (15px, 700), meta line ("4 members · 2 active bills", 12px muted), teal checkmark circle on the selected entry. "Join or create a household" teal text button at bottom.
-
-Auto-dismisses after 220ms on selection (lets user see the selection animate before closing).
-
-### Household screen (tab 2)
-
-Member list: each member as a card (40px avatar circle, color-coded per member, name + role badge). Role badges: Owner = `#1A1A1F` bg / white text; Admin = `#E3EEEE` / `#2E6E6E`; Guest = `#F1F0EE` / `#6B7280`. Invite section below the list: monospaced invite ID (20px, letter-spacing 0.12em) + "Copy invite ID" button.
+| Pending (you) | `#FEF3C7` + 1.5px `#FDE68A` outline | `#D97706` |

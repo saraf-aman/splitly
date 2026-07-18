@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** UI gap fix — "Add another household" entry point for single-household users (currently auto-redirect bypasses the picker, so there's no UI to create/join a 2nd household). Then Phase 9.1 home dashboard bills feed.
+- **Next step:** 9.1 — Navigation shell rework (top bar + liquid glass home pill + remove bottom tabs). Full design spec in `PROJECT_PLAN.md §14`.
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)

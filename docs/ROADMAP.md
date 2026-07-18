@@ -79,10 +79,14 @@ A user currently belongs to exactly one household forever (`users/{uid}.househol
 - [x] **8.5** Picker/landing screen: lists all of the user's households (reuses the existing create/join UI as "add another household"); if the user belongs to exactly one, auto-enter it directly rather than forcing an extra tap.
 - [x] **8.6** `HouseholdGate` rework: binary onboarding/home redirect becomes three-way — 0 households → `/onboarding`; exactly 1 → straight into that household; 2+ → the picker. Generalize the existing removed-while-viewing detection (currently keyed off one global `householdId`) to work per-household.
 
-## Phase 9 — History & dashboard
+## Phase 9 — Navigation shell redesign + dashboard
 
-- [ ] **9.1** Home dashboard: list of bills needing the current user's input (no selection made yet on an `open` bill), plus quick stats (e.g. "2 bills pending"). Built against the Phase 8 picker/routing, scoped to the currently-selected household.
-- [ ] **9.2** Bill history view limited to the last 2 weeks, with the older-than-2-weeks bills simply excluded from the default query (no need to delete data unless storage becomes a concern later).
+Full design spec in `docs/PROJECT_PLAN.md §14`. This phase replaces the bottom tab bar with a top-bar + hamburger drawer pattern and builds the home bills feed.
+
+- [ ] **9.1** Navigation shell rework: replace `AppShell` bottom tabs with a top bar (`Splitly` wordmark → picker on left, hamburger `≡` on right). Add liquid glass `← ⌂` pill below the top bar on inner household screens (bill review/select/grid) — absent on household home. Add sign-out icon on picker screen header instead of hamburger. Remove all bottom tab nav. See `PROJECT_PLAN.md §14` for exact CSS and layout spec.
+- [ ] **9.2** Hamburger drawer component: slides in from right, contains Home / Manage (admin+creator only, hidden for guests) / Switch Household / Sign out. Wired into the top bar hamburger button from 9.1.
+- [ ] **9.3** Household home page redesign: replace the current placeholder content with a bills feed (scrollable bill cards per `PROJECT_PLAN.md §14` Bills feed section) + floating camera FAB bottom-right (`#2E6E6E`, links to `/bills/new`). Empty state when no bills. Also fix the UI gap from Phase 8: add a "Join or create another household" entry point on the household home or management screen so single-household users can reach the picker's create/join form without going through the auto-redirect.
+- [ ] **9.4** Bill history: bills older than 2 weeks are excluded from the default feed query (no deletion needed). A "Show older bills" toggle or link at the bottom of the feed reveals them.
 
 ## Phase 10 — Splitwise integration
 
