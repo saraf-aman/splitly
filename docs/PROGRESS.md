@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 9.1 — Navigation shell rework (top bar + liquid glass home pill + remove bottom tabs). Full design spec in `PROJECT_PLAN.md §14`.
+- **Next step:** 9.2 — Hamburger drawer component (Home / Manage admin-only / Switch Household / Sign out). Full design spec in `PROJECT_PLAN.md §14`.
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -23,6 +23,14 @@ _Entry template:_
 ```
 
 ---
+
+## 9.1 — Navigation shell rework  (2026-07-18)
+- `AppShell` fully rewritten: bottom tab bar removed; fixed top bar with Splitly wordmark (left → `/households`) + hamburger/sign-out (right).
+- Liquid glass `← ⌂` pill renders below the top bar on inner household screens (`hhId` present, path ≠ household home). Uses inline `backdropFilter: blur(12px)` + translucent white border/background per `PROJECT_PLAN.md §14`.
+- Picker screen (`/households`) shows sign-out icon instead of hamburger; wired to `signOut(auth)`.
+- Hamburger button on household screens is a visual placeholder for now — drawer wired in 9.2.
+- Main content: `pt-14` (56px) on household home/picker, `pt-[100px]` on inner screens (accounts for top bar + pill row).
+- Removed redundant page-level back buttons from `household/page.tsx` (two instances), `select/page.tsx`, `grid/page.tsx` — shell pill replaces them. Removed now-unused `Link`, `ChevronLeft` imports from household page.
 
 ## 8.6 — HouseholdGate rework  (2026-07-18)
 - Switched from `useUserHousehold()` to `useUserHouseholds()`.

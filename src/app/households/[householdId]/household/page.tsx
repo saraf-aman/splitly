@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   deleteHousehold,
@@ -50,9 +48,6 @@ export default function HouseholdManagePage() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-background px-6">
         <p className="text-body text-foreground">Only admins can manage the household.</p>
-        <Link href={`/households/${householdId}`} className="text-sm text-primary hover:underline">
-          Back home
-        </Link>
       </div>
     );
   }
@@ -88,13 +83,6 @@ export default function HouseholdManagePage() {
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 bg-background px-6 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-heading text-foreground">Manage household</h1>
-        <Link
-          href={`/households/${householdId}`}
-          className="flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          <ChevronLeft className="size-4" />
-          Back
-        </Link>
       </div>
 
       <ul className="flex flex-col gap-2">

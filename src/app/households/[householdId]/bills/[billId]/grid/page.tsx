@@ -273,13 +273,6 @@ export default function GridPage() {
         >
           Edit my selections
         </Button>
-        <Button
-          variant="ghost"
-          className="mt-2 w-full text-muted-foreground"
-          onClick={() => router.push(`/households/${householdId}`)}
-        >
-          Back to home
-        </Button>
       </div>
     </div>
   );
