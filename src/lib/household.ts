@@ -57,11 +57,11 @@ export async function joinHousehold(user: User, householdId: string): Promise<vo
   await setDoc(doc(db, "users", user.uid), { householdIds: arrayUnion(trimmedId) }, { merge: true });
 }
 
-type UserHouseholdState = { loading: boolean; householdId: string | null };
+type UserHouseholdsState = { loading: boolean; householdIds: string[] };
 
-export function useUserHousehold(): UserHouseholdState {
+export function useUserHouseholds(): UserHouseholdsState {
   const { user } = useAuth();
-  const [state, setState] = useState<UserHouseholdState>({ loading: true, householdId: null });
+  const [state, setState] = useState<UserHouseholdsState>({ loading: true, householdIds: [] });
 
   useEffect(() => {
     if (!user) return;
@@ -69,11 +69,19 @@ export function useUserHousehold(): UserHouseholdState {
       const data = snap.exists() ? snap.data() : null;
       // Fall back to legacy `householdId` string so docs written before 8.1 still work.
       const ids: string[] = data?.householdIds ?? (data?.householdId ? [data.householdId as string] : []);
-      setState({ loading: false, householdId: ids[0] ?? null });
+      setState({ loading: false, householdIds: ids });
     });
   }, [user]);
 
-  return user ? state : { loading: false, householdId: null };
+  return user ? state : { loading: false, householdIds: [] };
+}
+
+type UserHouseholdState = { loading: boolean; householdId: string | null };
+
+// Compatibility wrapper — callers migrate to useUserHouseholds() in steps 8.4 and 8.6.
+export function useUserHousehold(): UserHouseholdState {
+  const { loading, householdIds } = useUserHouseholds();
+  return { loading, householdId: householdIds[0] ?? null };
 }
 
 export function useHousehold(householdId: string | null): (Household & { id: string }) | null {

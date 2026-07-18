@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 8.3 — Replace `useUserHousehold()` with `useUserHouseholds()` returning the full list
+- **Next step:** 8.4 — Routing rework: flat routes become `/households/[householdId]/...`
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -21,6 +21,12 @@ _Entry template:_
 ## [Step] — [title]  (YYYY-MM-DD)
 - Built / Files / Deviations / Next session should know
 ```
+
+---
+
+## 8.3 — Hooks rework  (2026-07-18)
+- Added `useUserHouseholds(): { loading: boolean; householdIds: string[] }` to `src/lib/household.ts` — owns the Firestore listener with legacy `householdId` fallback (same fallback as before, now in one place)
+- `useUserHousehold()` collapsed into a thin wrapper: `return { loading, householdId: householdIds[0] ?? null }` — no effects, no duplicated listener. All five existing callers (page.tsx, bills/new, household/page, NotificationBanner, HouseholdGate) continue to work unchanged; they migrate to `useUserHouseholds()` in 8.4 and 8.6.
 
 ---
 
