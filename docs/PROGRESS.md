@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 8.2 — `leaveHousehold` action + Firestore rule letting any non-creator member delete their own member doc
+- **Next step:** 8.3 — Replace `useUserHousehold()` with `useUserHouseholds()` returning the full list
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -21,6 +21,12 @@ _Entry template:_
 ## [Step] — [title]  (YYYY-MM-DD)
 - Built / Files / Deviations / Next session should know
 ```
+
+---
+
+## 8.2 — leaveHousehold action + Firestore rule  (2026-07-18)
+- `firestore.rules` member `delete` rule: added a top-level OR clause — any non-creator member (`memberId == request.auth.uid && uid != createdBy`) can now delete their own doc regardless of role. Admin-initiated removal logic is unchanged beneath it.
+- `leaveHousehold(user, householdId)` added to `src/lib/household.ts`: deletes the member doc first, then `arrayRemove`s the household from the user's `householdIds` array. If the second write ever fails, HouseholdGate's `wasRemoved` path self-heals it via `clearRemovedHouseholdPointer`. No UI surface this step — the "Leave" button is wired in Phase 8.5/8.6.
 
 ---
 

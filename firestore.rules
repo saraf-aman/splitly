@@ -70,18 +70,24 @@ service cloud.firestore {
              isHouseholdCreator(householdId) ||
              (resource.data.role == 'guest' && request.resource.data.role == 'admin')
            ));
-        allow delete: if isHouseholdAdmin(householdId) &&
-          (
-            // The creator can delete their own member doc — but only as the
-            // last step of tearing down the whole household (see
-            // deleteHousehold() client-side); there's no standalone "leave
-            // household" self-service action exposed for the creator.
-            (memberId == request.auth.uid && isHouseholdCreator(householdId)) ||
+        allow delete: if
+          // Any non-creator member can leave on their own, regardless of role.
+          // Multi-household makes leaving a normal self-service action.
+          (memberId == request.auth.uid &&
+           request.auth.uid != get(/databases/$(database)/documents/households/$(householdId)).data.createdBy) ||
+          // Admin-initiated removals (unchanged):
+          // - Creator can delete their own doc as the final step of deleteHousehold.
+          // - Creator can remove any other member.
+          // - Admin can remove a guest.
+          (isHouseholdAdmin(householdId) &&
             (
-              memberId != get(/databases/$(database)/documents/households/$(householdId)).data.createdBy &&
+              (memberId == request.auth.uid && isHouseholdCreator(householdId)) ||
               (
-                isHouseholdCreator(householdId) ||
-                resource.data.role == 'guest'
+                memberId != get(/databases/$(database)/documents/households/$(householdId)).data.createdBy &&
+                (
+                  isHouseholdCreator(householdId) ||
+                  resource.data.role == 'guest'
+                )
               )
             )
           );

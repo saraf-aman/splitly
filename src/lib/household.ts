@@ -157,6 +157,15 @@ export async function clearRemovedHouseholdPointer(user: User, householdId: stri
   await updateDoc(doc(db, "users", user.uid), { householdIds: arrayRemove(householdId) });
 }
 
+// Self-service leave for any non-creator member (guests and admins alike).
+// Deletes the member doc first, then removes the household from the user's
+// householdIds array. If the array write fails, HouseholdGate's wasRemoved
+// path self-heals it on next load via clearRemovedHouseholdPointer.
+export async function leaveHousehold(user: User, householdId: string): Promise<void> {
+  await deleteDoc(doc(db, "households", householdId, "members", user.uid));
+  await updateDoc(doc(db, "users", user.uid), { householdIds: arrayRemove(householdId) });
+}
+
 export async function updateMemberRole(
   householdId: string,
   memberId: string,
