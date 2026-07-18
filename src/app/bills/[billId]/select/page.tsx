@@ -211,8 +211,7 @@ export default function SelectItemsPage() {
         {overrideMember ? (
           /* Override mode: done editing goes back to grid, no confirm */
           <Button
-            variant="outline"
-            className="w-full bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200 hover:text-amber-900"
+            className="w-full bg-amber-700 text-white hover:bg-amber-800"
             onClick={() => router.push(`/bills/${billId}/grid`)}
           >
             Save

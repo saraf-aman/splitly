@@ -177,7 +177,7 @@ export default function GridPage() {
                             isSelf
                               ? "bg-green-500 text-white"
                               : uploaderSet
-                              ? "bg-amber-700 text-white"
+                              ? "bg-amber-500 text-white"
                               : "bg-muted text-foreground"
                           }`}
                         >
