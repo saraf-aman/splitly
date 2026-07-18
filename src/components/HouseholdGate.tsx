@@ -5,58 +5,74 @@ import { useEffect, useRef } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { clearRemovedHouseholdPointer, useMembershipStatus, useUserHousehold } from "@/lib/household";
+import { clearRemovedHouseholdPointer, useMembershipStatus, useUserHouseholds } from "@/lib/household";
 import { useNotificationSetup } from "@/lib/notifications";
 
 const ONBOARDING_PATH = "/onboarding";
+const PICKER_PATH = "/households";
 
 export function HouseholdGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const { householdId, loading } = useUserHousehold();
-  const membership = useMembershipStatus(householdId, user?.uid);
-  useNotificationSetup(user?.uid, householdId);
-
-  // Backfill email on existing member docs (new field — runs once per session).
-  useEffect(() => {
-    if (!user?.uid || !householdId || !user.email) return;
-    void updateDoc(doc(db, "households", householdId, "members", user.uid), {
-      email: user.email,
-    });
-  }, [user?.uid, user?.email, householdId]);
+  const { householdIds, loading } = useUserHouseholds();
   const pathname = usePathname();
   const router = useRouter();
+
+  // Which household is currently open in the URL (null on picker/onboarding/root).
+  const hhMatch = pathname.match(/^\/households\/([^/]+)/);
+  const viewedHouseholdId = hhMatch?.[1] ?? null;
+
+  // Membership is checked against the *viewed* household, not the user's first one.
+  // This means removal is detected per-household rather than globally.
+  const membership = useMembershipStatus(viewedHouseholdId, user?.uid);
+
+  // FCM tokens are stored on member docs; use first household for now.
+  useNotificationSetup(user?.uid, householdIds[0] ?? null);
+
+  // Backfill email field on all member docs (added after initial release).
+  const idsKey = householdIds.join(",");
+  useEffect(() => {
+    if (!user?.uid || !user.email || !householdIds.length) return;
+    householdIds.forEach((id) => {
+      void updateDoc(doc(db, "households", id, "members", user.uid), { email: user.email });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, user?.email, idsKey]);
+
   const isOnboarding = pathname === ONBOARDING_PATH;
-  const wasRemoved = !!householdId && !membership.loading && !membership.isMember;
+  const isPicker = pathname === PICKER_PATH;
+
+  // wasRemoved: we're on a specific household URL but our member doc is gone.
+  const wasRemoved = !!viewedHouseholdId && !membership.loading && !membership.isMember;
   const clearing = useRef(false);
 
   useEffect(() => {
     clearing.current = false;
-  }, [householdId]);
+  }, [viewedHouseholdId]);
 
   useEffect(() => {
     if (!user || loading) return;
 
     if (wasRemoved) {
-      // We're still holding a users/{uid} -> householdId pointer, but our
-      // membership doc is gone (removed by an admin, possibly while this tab
-      // was already open) — self-clear the pointer so we route to onboarding
-      // instead of continuing to show household data we can no longer read.
       if (!clearing.current) {
         clearing.current = true;
-        void clearRemovedHouseholdPointer(user, householdId!);
+        // Remove the stale pointer, then let the picker route to remaining households
+        // (or onboarding if this was the last one).
+        void clearRemovedHouseholdPointer(user, viewedHouseholdId!);
+        router.replace(PICKER_PATH);
       }
       return;
     }
 
-    if (!householdId && !isOnboarding) {
+    // No households yet — must onboard. Picker and onboarding manage themselves.
+    if (householdIds.length === 0 && !isOnboarding && !isPicker) {
       router.replace(ONBOARDING_PATH);
     }
-    if (householdId && isOnboarding) {
-      router.replace(`/households/${householdId}`);
+    // Already has households but landed on onboarding — go to picker (handles 1 vs 2+).
+    if (householdIds.length > 0 && isOnboarding) {
+      router.replace(PICKER_PATH);
     }
-  }, [user, loading, householdId, isOnboarding, router, wasRemoved]);
+  }, [user, loading, householdIds, isOnboarding, isPicker, router, wasRemoved, viewedHouseholdId]);
 
-  // AuthGate owns the logged-out / /login case — nothing to gate here yet.
   if (!user) {
     return <>{children}</>;
   }
@@ -77,12 +93,12 @@ export function HouseholdGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!householdId && !isOnboarding) {
+  // Suppress children while a redirect is in flight.
+  if (householdIds.length === 0 && !isOnboarding && !isPicker) {
     return null;
   }
-
-  if (householdId && isOnboarding) {
-    return null; // redirect to /households/${householdId} in flight
+  if (householdIds.length > 0 && isOnboarding) {
+    return null;
   }
 
   return <>{children}</>;

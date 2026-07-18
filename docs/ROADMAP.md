@@ -77,7 +77,7 @@ A user currently belongs to exactly one household forever (`users/{uid}.househol
 - [x] **8.3** Hooks rework: replace `useUserHousehold()` with `useUserHouseholds()` (returns the list the user belongs to). Every other hook (`useHousehold`, `useMembers`, `useMembershipStatus`, `updateMemberRole`, `removeMember`, `deleteHousehold`) is unchanged.
 - [x] **8.4** Routing rework: flat routes (`/`, `/bills/new`, `/household`) become `/households/[householdId]/...`.
 - [x] **8.5** Picker/landing screen: lists all of the user's households (reuses the existing create/join UI as "add another household"); if the user belongs to exactly one, auto-enter it directly rather than forcing an extra tap.
-- [ ] **8.6** `HouseholdGate` rework: binary onboarding/home redirect becomes three-way — 0 households → `/onboarding`; exactly 1 → straight into that household; 2+ → the picker. Generalize the existing removed-while-viewing detection (currently keyed off one global `householdId`) to work per-household.
+- [x] **8.6** `HouseholdGate` rework: binary onboarding/home redirect becomes three-way — 0 households → `/onboarding`; exactly 1 → straight into that household; 2+ → the picker. Generalize the existing removed-while-viewing detection (currently keyed off one global `householdId`) to work per-household.
 
 ## Phase 9 — History & dashboard
 

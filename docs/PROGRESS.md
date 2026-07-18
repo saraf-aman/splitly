@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 8.6 — HouseholdGate rework: three-way redirect (0 → onboarding, 1 → household, 2+ → picker), generalize wasRemoved detection
+- **Next step:** UI gap fix — "Add another household" entry point for single-household users (currently auto-redirect bypasses the picker, so there's no UI to create/join a 2nd household). Then Phase 9.1 home dashboard bills feed.
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -23,6 +23,16 @@ _Entry template:_
 ```
 
 ---
+
+## 8.6 — HouseholdGate rework  (2026-07-18)
+- Switched from `useUserHousehold()` to `useUserHouseholds()`.
+- `viewedHouseholdId` now extracted from the URL path (`/households/[id]`), not from the user's first household ID — `useMembershipStatus` watches the viewed household, so removal is detected per-household.
+- Three-way redirect: 0 households + not on onboarding/picker → `/onboarding`; has households + on onboarding → `/households` (picker handles 1 vs 2+). Picker and onboarding pages manage their own routing.
+- `wasRemoved` now routes to `/households` (not back into the removed household URL). `clearRemovedHouseholdPointer` fires in parallel; the picker then routes to remaining households or onboarding.
+- `clearing` ref now resets on `viewedHouseholdId` change (was `householdId`).
+- Email backfill runs for all householdIds (was only for the single household).
+- FCM token setup still uses `householdIds[0]` — multi-household notification targeting is a future concern.
+- Known gap: users with exactly 1 household auto-redirect past the picker so there's no UI to create/join a 2nd household. Will be fixed before Phase 9.
 
 ## 8.5 — Picker/landing screen  (2026-07-18)
 - `useHouseholdList(ids: string[])` added to `src/lib/household.ts`: opens one `onSnapshot` per household, coalesces into an ordered array, clears state on cleanup. Dep is `idsKey = ids.join(",")` to avoid stale closure on array reference changes.
