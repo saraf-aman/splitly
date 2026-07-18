@@ -1,15 +1,26 @@
 # Progress Log
 
-Append one entry per completed step, most recent at the bottom. Keep entries short — bullet points, not paragraphs. This file (plus ROADMAP.md) is what a fresh chat session needs to pick up exactly where the last one left off, so it's worth being precise about deviations/decisions even if terse.
+---
 
-Entry template:
+## Current state
+_Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
+- **Next step:** 5.3 — wire up writes: toggling checkbox / changing shares updates `selections[uid]` in Firestore, live across all clients
+- **Phase 5 progress:** 5.1 + 5.2 done (`/bills/[billId]/select` — items with checkbox+shares display; shared charges as locked dashed rows with lock icon below items)
+- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm)
+- **Dev server:** port 3001 (port 3000 is a different app on this machine)
+- **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6)
+- **Gemini model:** `gemini-flash-lite-latest` (speed > accuracy to stay within Vercel Hobby 10s limit)
+- **Money:** always integer cents everywhere — display formatting only in UI
+- **Key rules:** `"use client"` on anything importing `firebase.ts`; `persistentLocalCache` = IndexedDB browser-only; `react-hooks/set-state-in-effect` lint rule enforced (no setState synchronously in effect bodies — derive from params instead)
+- **For 5.3:** wire up checkbox toggle + shares stepper in `select/page.tsx` to write `selections[uid] = { included, shares, setBy: uid }` on each item doc; optimistic local state, Firestore as source of truth for other clients; `setBy` field required from first write (Phase 6.4 attribution)
+
+---
+
+_Entry template:_
 ```
-## [Step number] — [short title]  (YYYY-MM-DD)
-- Built: <one or two lines on what was implemented>
-- Files: <key files added/changed>
-- Deviations/decisions: <anything that differs from PROJECT_PLAN.md or ROADMAP.md, or a judgment call made while building>
-- Next session should know: <anything not obvious from the code itself>
+## [Step] — [title]  (YYYY-MM-DD)
+- Built / Files / Deviations / Next session should know
 ```
 
 ---

@@ -47,7 +47,7 @@ Moved up ahead of further feature work, per user request — see `PROJECT_PLAN.m
 ## Phase 5 — Realtime selection screen
 
 - [x] **5.1** Item list UI with a realtime Firestore listener: checkbox column + shares column per item, default `included: true, shares: 1`.
-- [ ] **5.2** Shared charges (tax/tip/service charge) rendered as locked, always-checked rows in the same screen — visually distinct from editable items, no controls to change them.
+- [x] **5.2** Shared charges (tax/tip/service charge) rendered as locked, always-checked rows in the same screen — visually distinct from editable items, no controls to change them.
 - [ ] **5.3** Wire up writes: toggling a checkbox or changing a share count for the current user updates their `selections` map on that item in Firestore, and every other open client sees it update live. Write shape is `selections[uid] = { included, shares, setBy: uid }` — the `setBy` field (who actually wrote this entry) is self-only at this phase, but exists from the first write onward so Phase 6.4's owner-override can render real attribution history rather than only newly-overridden entries.
 - [ ] **5.4** Simple per-user "done" indicator (e.g. a "confirm my selections" button) so others can see who's finished vs still deciding — informational only, doesn't block others from viewing/editing their own.
 

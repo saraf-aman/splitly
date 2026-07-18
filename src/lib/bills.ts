@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { addDoc, collection, doc, getDoc, onSnapshot, updateDoc, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Bill, BillItem, ParsedReceipt, SharedChargeType } from "@/types/firestore";
+import type { Bill, BillItem, ParsedReceipt, SharedCharge, SharedChargeType } from "@/types/firestore";
 
 type ParsedBill = ParsedReceipt & {
   restaurantOrStoreName: string | null;
@@ -102,6 +102,25 @@ export function useBill(billId: string | null) {
   }, [billId]);
 
   return { bill, loading: billId === null ? false : loading };
+}
+
+export function useSharedCharges(billId: string | null) {
+  const [charges, setCharges] = useState<(SharedCharge & { id: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!billId) return;
+    return onSnapshot(
+      collection(db, "bills", billId, "sharedCharges"),
+      (snap) => {
+        setCharges(snap.docs.map((d) => ({ id: d.id, ...(d.data() as SharedCharge) })));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+  }, [billId]);
+
+  return { charges, loading: billId === null ? false : loading };
 }
 
 export function useBillItems(billId: string | null) {

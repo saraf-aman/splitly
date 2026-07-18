@@ -21,7 +21,7 @@ A realtime, mobile-installable (PWA) app for a 3-4 person household to split gro
 
 ## How to work in this repo (for Claude Code, every session)
 
-1. Read `docs/PROGRESS.md` first — this tells you exactly what's already built and any deviations from the original plan.
+1. Read the **`## Current state` block at the top of `docs/PROGRESS.md`** — it's a short summary of where we are and what the next step needs. Do NOT read the full history entries below it unless you need context on a specific past decision.
 2. Read `docs/ROADMAP.md` and find the **first unchecked step**. That is the only thing you should build this session. Do not jump ahead to later phases even if it seems efficient — steps are sized intentionally small so each fits in one focused session.
 3. Only consult `docs/PROJECT_PLAN.md` for the specific section relevant to the step you're building (e.g. if the step is about the data model, read only that section) — don't re-read the whole file every session, it's for reference, not required context.
 4. Build only that one step. Don't scaffold future phases "while you're at it."
@@ -36,9 +36,10 @@ A realtime, mobile-installable (PWA) app for a 3-4 person household to split gro
 
 ## Token efficiency conventions
 
-- Don't re-read the entire codebase at the start of a session — use targeted file reads/greps based on what the current step needs.
+- Read only the `## Current state` block of `PROGRESS.md` at session start — not the full file. The history entries are reference-only.
+- Don't re-read the entire codebase — use targeted file reads/greps for only the files the current step touches.
 - Don't restate the full plan back to the user before building — just confirm the step and build it.
-- Keep `PROGRESS.md` entries terse (bullet points, not prose paragraphs).
+- Update the `## Current state` block at the end of every session (replace it in-place, don't append to it).
 - Prefer small, focused diffs over large rewrites.
 
 ## Roles & permissions (quick reference — full detail in PROJECT_PLAN.md §3)
