@@ -18,6 +18,7 @@ export interface Household {
 export interface Member {
   displayName: string;
   photoUrl: string;
+  email: string;
   role: Role;
   fcmTokens: string[];
   addedAt: Timestamp;

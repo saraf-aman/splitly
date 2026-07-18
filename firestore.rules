@@ -63,7 +63,7 @@ service cloud.firestore {
         allow update: if
           (isHouseholdMember(householdId) &&
            memberId == request.auth.uid &&
-           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmTokens'])) ||
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmTokens', 'email'])) ||
           (isHouseholdAdmin(householdId) &&
            memberId != get(/databases/$(database)/documents/households/$(householdId)).data.createdBy &&
            (

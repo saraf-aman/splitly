@@ -2,7 +2,9 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
+import { db } from "@/lib/firebase";
 import { clearRemovedHouseholdPointer, useMembershipStatus, useUserHousehold } from "@/lib/household";
 import { useFcmRegistration } from "@/lib/notifications";
 
@@ -13,6 +15,14 @@ export function HouseholdGate({ children }: { children: React.ReactNode }) {
   const { householdId, loading } = useUserHousehold();
   const membership = useMembershipStatus(householdId, user?.uid);
   useFcmRegistration(user?.uid, householdId);
+
+  // Backfill email on existing member docs (new field — runs once per session).
+  useEffect(() => {
+    if (!user?.uid || !householdId || !user.email) return;
+    void updateDoc(doc(db, "households", householdId, "members", user.uid), {
+      email: user.email,
+    });
+  }, [user?.uid, user?.email, householdId]);
   const pathname = usePathname();
   const router = useRouter();
   const isOnboarding = pathname === ONBOARDING_PATH;

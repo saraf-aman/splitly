@@ -33,6 +33,7 @@ export async function createHousehold(user: User, name: string): Promise<string>
   await setDoc(doc(householdRef, "members", user.uid), {
     displayName: user.displayName ?? "",
     photoUrl: user.photoURL ?? "",
+    email: user.email ?? "",
     role: "admin",
     fcmTokens: [],
     addedAt: serverTimestamp(),
@@ -46,6 +47,7 @@ export async function joinHousehold(user: User, householdId: string): Promise<vo
   await setDoc(doc(db, "households", trimmedId, "members", user.uid), {
     displayName: user.displayName ?? "",
     photoUrl: user.photoURL ?? "",
+    email: user.email ?? "",
     role: "guest",
     fcmTokens: [],
     addedAt: serverTimestamp(),
