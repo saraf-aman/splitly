@@ -28,9 +28,19 @@ function redirectTo(path: string) {
 }
 
 export async function GET(req: NextRequest) {
+  try {
+    return await handleCallback(req);
+  } catch (err) {
+    console.error("[splitwise/callback] Unhandled exception:", err);
+    return redirectTo("/groups?picker=1&sw_error=server_error");
+  }
+}
+
+async function handleCallback(req: NextRequest) {
   const clientId = process.env.SPLITWISE_CLIENT_ID;
   const clientSecret = process.env.SPLITWISE_CLIENT_SECRET;
   if (!clientId || !clientSecret || !APP_URL) {
+    console.error("[splitwise/callback] Missing config — clientId:", !!clientId, "clientSecret:", !!clientSecret, "APP_URL:", !!APP_URL);
     return redirectTo("/groups?picker=1&sw_error=config");
   }
 
@@ -39,6 +49,7 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get("state");
 
   if (!code || !state) {
+    console.error("[splitwise/callback] Missing params — code:", !!code, "state:", !!state, "all params:", searchParams.toString());
     return redirectTo("/groups?picker=1&sw_error=missing_params");
   }
 
@@ -48,17 +59,20 @@ export async function GET(req: NextRequest) {
   // Look up the state doc to find which user is connecting
   const stateDoc = await db.collection("splitwiseOAuthStates").doc(state).get();
   if (!stateDoc.exists) {
+    console.error("[splitwise/callback] State doc not found for state:", state);
     return redirectTo("/groups?picker=1&sw_error=invalid_state");
   }
 
   const { uid, expiresAt } = stateDoc.data() as { uid: string; expiresAt: { toDate(): Date } };
   if (expiresAt.toDate() < new Date()) {
     await stateDoc.ref.delete();
+    console.error("[splitwise/callback] State expired for uid:", uid);
     return redirectTo("/groups?picker=1&sw_error=expired");
   }
 
   // Exchange code for access token
   const redirectUri = `${APP_URL}/api/splitwise/callback`;
+  console.log("[splitwise/callback] Exchanging token, redirect_uri:", redirectUri);
   const tokenRes = await fetch("https://secure.splitwise.com/oauth/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -72,6 +86,8 @@ export async function GET(req: NextRequest) {
   });
 
   if (!tokenRes.ok) {
+    const body = await tokenRes.text();
+    console.error("[splitwise/callback] Token exchange failed:", tokenRes.status, body);
     await stateDoc.ref.delete();
     return redirectTo("/groups?picker=1&sw_error=token_exchange");
   }
@@ -84,6 +100,8 @@ export async function GET(req: NextRequest) {
   });
 
   if (!userRes.ok) {
+    const body = await userRes.text();
+    console.error("[splitwise/callback] User fetch failed:", userRes.status, body);
     await stateDoc.ref.delete();
     return redirectTo("/groups?picker=1&sw_error=user_fetch");
   }

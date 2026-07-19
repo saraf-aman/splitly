@@ -23,13 +23,20 @@ export default function GroupsPickerPage() {
   const [swDisconnecting, setSwDisconnecting] = useState(false);
   const [swError, setSwError] = useState<string | null>(null);
 
-  // Show connection status toast based on callback query param
+  // Show connection status based on callback query param, then clear the param so refresh doesn't re-show it
   const swParam = searchParams.get("sw");
   const swErrorParam = searchParams.get("sw_error");
   useEffect(() => {
+    if (!swParam && !swErrorParam) return;
     void Promise.resolve().then(() => {
-      if (swErrorParam) setSwError("Splitwise connection failed. Please try again.");
-      else if (swParam === "connected") setSwError(null);
+      if (swErrorParam) {
+        setSwError(`Splitwise connection failed (${swErrorParam}). Please try again.`);
+      }
+      // Strip the sw params from the URL without re-navigating
+      const url = new URL(window.location.href);
+      url.searchParams.delete("sw");
+      url.searchParams.delete("sw_error");
+      window.history.replaceState(null, "", url.toString());
     });
   }, [swParam, swErrorParam]);
 
