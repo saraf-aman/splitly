@@ -7,13 +7,16 @@ _Update this block at the end of every session. This is the only section a new s
 
 - **Next step:** 10.1 — Settings screen to connect a Splitwise API key + select/enter the target group.
 - **Firestore composite index:** `bills` on `(householdId ASC, createdAt DESC)` — created in `firestore.indexes.json` and deployed. Required for `useHouseholdBills` query to work server-side. Also add `"indexes": "firestore.indexes.json"` to `firebase.json` (already done this session).
-- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
+- **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications), 8 (multi-household + dashboard nav), 9 (nav shell redesign + bills feed)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
 - **Gemini model:** `gemini-flash-lite-latest` (speed > accuracy to stay within Vercel Hobby 10s limit)
 - **Money:** always integer cents everywhere — display formatting only in UI
 - **Key rules:** `"use client"` on anything importing `firebase.ts`; `persistentLocalCache` = IndexedDB browser-only; `react-hooks/set-state-in-effect` lint rule enforced (no setState synchronously in effect bodies — derive from params instead)
 - **shadcn Button override gotcha:** `variant="outline"` has `dark:bg-input/30` which competes with Tailwind bg overrides in className. Use `variant="default"` when you need a fully custom background color — `bg-primary` is the only bg class it sets and tailwind-merge cleanly overrides it.
+- **Home button:** solid `#FFFBF5` (warm cream-white, hardcoded — not a CSS var) with double box-shadow; `z-index: 30`. Liquid glass was removed because it blended with scrolled page content.
+- **Invite code:** the Firestore household document ID is the join code — no separate field. Shown in NavDrawer via "Invite Code" toggle with copy-to-clipboard.
+- **Force settle:** bill uploader OR any admin can tap "Mark as settled" on the grid page to write `confirmedBy.{id}: true` for all members via `forceSettleBill()` in `bills.ts`, bypassing the need for every member to confirm.
 
 ---
 
@@ -24,6 +27,26 @@ _Entry template:_
 ```
 
 ---
+
+## Phase 9 polish + post-9.4 fixes  (2026-07-18)
+
+### 9.4 — Settled bill age filter
+- `src/app/households/[householdId]/page.tsx`: added `isSettledAndOld()` (>30 days by `createdAt`) and applied it in the grouping filter — settled bills older than 1 month are excluded from the feed. Non-settled bills always show. No Firestore query change needed; filter is client-side.
+
+### NavDrawer: Invite Code + Switch Household fix
+- Added "Invite Code" entry (available to all members) in the primary nav section. Clicking toggles an inline panel showing the household Firestore ID (the join code) with a copy-to-clipboard button (checkmark feedback for 2s). State resets via `close()` wrapper instead of an effect (avoids `react-hooks/set-state-in-effect` lint error).
+- "Switch Household" now navigates to `/households?join=1` (was `/households`). The `?join=1` param bypasses the single-household auto-redirect in the picker, landing on the picker with `HouseholdFormCard` immediately visible.
+
+### Removed "+ Join or create another household" link
+- `src/app/households/[householdId]/page.tsx`: removed the footer text button that linked to `/households?join=1` — redundant now that the hamburger handles it.
+- `src/app/households/page.tsx`: removed the toggle-button/`showAdd` state; `HouseholdFormCard` now renders directly (no click-to-expand). Removed `useState`, `Plus`, `Button` imports.
+
+### Home button: solid FAB
+- `src/components/AppShell.tsx`: replaced liquid glass (translucent + backdropFilter) with a fully opaque `#FFFBF5` warm cream background, hardcoded (not a CSS var — vars were not resolving reliably in inline styles). Double box-shadow (`0 4px 16px` + `0 1px 4px`) for clear FAB elevation. `z-index` raised to 30.
+
+### Grid page: "Mark as Settled" (force settle)
+- `src/lib/bills.ts`: added `forceSettleBill(billId, memberIds)` — writes `confirmedBy.{id}: true` for every member in one `updateDoc` call. Firestore allows this (any household member can update a bill doc).
+- `src/app/households/[householdId]/bills/[billId]/grid/page.tsx`: "Mark as settled" button shown when `(isUploader || isAdmin) && confirmedCount < members.length`. On tap, calls `forceSettleBill` then navigates home. The home page's existing `getSection` logic then classifies the bill as settled.
 
 ## Bug fixes: routing, Confirm button, Firestore index  (2026-07-19)
 
