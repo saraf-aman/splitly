@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           style={{ height: NAV_H }}
         >
           <Link
-            href={PICKER_PATH}
+            href={`${PICKER_PATH}?picker=1`}
             className="text-foreground"
             style={{ fontSize: "1.15rem", fontWeight: 700, letterSpacing: "-0.04em" }}
           >

@@ -17,6 +17,8 @@ _Update this block at the end of every session. This is the only section a new s
 - **Home button:** solid `#FFFBF5` (warm cream-white, hardcoded — not a CSS var) with double box-shadow; `z-index: 30`. Liquid glass was removed because it blended with scrolled page content.
 - **Invite code:** the Firestore household document ID is the join code — no separate field. Shown in NavDrawer via "Invite Code" toggle with copy-to-clipboard.
 - **Force settle:** bill uploader OR any admin can tap "Mark as settled" on the grid page to write `confirmedBy.{id}: true` for all members via `forceSettleBill()` in `bills.ts`, bypassing the need for every member to confirm.
+- **Grid visual polish:** header row `bg-muted` (solid); shared charges section `bg-slate-100` + `border-t-2`; total row `bg-teal-50` + `border-primary/40`; other-member cell pill `bg-stone-300 text-stone-600`; self pill stays `bg-green-500 text-white`; unconfirmed column tint bumped from `muted/30` → `muted/60`.
+- **Bottom button padding:** all three bill flow pages (select, review, grid) now use `pb-[calc(1.5rem+env(safe-area-inset-bottom))]` — was `0.75rem`/`1rem` before, which left buttons flush with the screen edge.
 
 ---
 

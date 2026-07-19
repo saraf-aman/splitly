@@ -12,6 +12,7 @@ export default function HouseholdsPickerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const joinMode = searchParams.get("join") === "1";
+  const pickerMode = searchParams.get("picker") === "1";
 
   useEffect(() => {
     if (loading) return;
@@ -19,13 +20,13 @@ export default function HouseholdsPickerPage() {
       router.replace("/onboarding");
       return;
     }
-    if (householdIds.length === 1 && !joinMode) {
+    if (householdIds.length === 1 && !joinMode && !pickerMode) {
       router.replace(`/households/${householdIds[0]}`);
     }
-  }, [loading, householdIds, router, joinMode]);
+  }, [loading, householdIds, router, joinMode, pickerMode]);
 
-  // Show nothing while redirecting (0 or 1 household when not in join mode)
-  if (loading || (householdIds.length < 2 && !joinMode)) return null;
+  // Show nothing while redirecting (0 or 1 household when not in join/picker mode)
+  if (loading || (householdIds.length < 2 && !joinMode && !pickerMode)) return null;
 
   return (
     <div className="flex flex-1 flex-col items-center gap-6 bg-background px-6 pt-12 pb-8">
