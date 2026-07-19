@@ -200,7 +200,7 @@ export default function SelectItemsPage() {
         )}
       </div>
 
-      <div className="border-t bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <div className="border-t bg-card px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         {overrideMember ? (
           <Button
             className="w-full bg-amber-700 text-white hover:bg-amber-800"
