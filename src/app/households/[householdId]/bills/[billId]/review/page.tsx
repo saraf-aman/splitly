@@ -276,7 +276,7 @@ export default function ReviewBillPage() {
         </div>
       </div>
 
-      <div className="border-t bg-card px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="border-t bg-card px-4 py-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         <Button
           size="lg"
           className="h-12 w-full text-base"

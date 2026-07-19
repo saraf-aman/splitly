@@ -96,8 +96,8 @@ export default function GridPage() {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b">
-                <th className="sticky left-0 z-10 bg-card min-w-[130px] max-w-[180px] px-4 py-2.5 text-left text-caption font-medium text-muted-foreground">
+              <tr className="border-b bg-muted">
+                <th className="sticky left-0 z-10 bg-muted min-w-[130px] max-w-[180px] px-4 py-2.5 text-left text-caption font-medium text-muted-foreground">
                   Item
                 </th>
                 {members.map((m) => {
@@ -108,7 +108,7 @@ export default function GridPage() {
                     <th
                       key={m.id}
                       className={`min-w-[72px] px-2 py-2 text-center text-caption font-medium ${
-                        confirmed ? "text-foreground" : "bg-muted/30 text-muted-foreground"
+                        confirmed ? "text-foreground" : "bg-muted/60 text-muted-foreground"
                       }`}
                     >
                       <div className="flex flex-col items-center gap-1">
@@ -168,17 +168,20 @@ export default function GridPage() {
                     let cellContent: React.ReactNode;
                     if (!sel || !included) {
                       cellContent = <span className="text-muted-foreground/30">—</span>;
-                    } else {
+                    } else if (uploaderSet || isSelf) {
                       cellContent = (
                         <span
                           className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            uploaderSet
-                              ? "bg-amber-500 text-white"
-                              : isSelf
-                              ? "bg-green-500 text-white"
-                              : "bg-muted text-foreground"
+                            uploaderSet ? "bg-amber-500 text-white" : "bg-green-500 text-white"
                           }`}
                         >
+                          <Check className="size-3 shrink-0" />
+                          {shares > 1 && <span>×{shares}</span>}
+                        </span>
+                      );
+                    } else {
+                      cellContent = (
+                        <span className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold bg-stone-300 text-stone-600">
                           <Check className="size-3 shrink-0" />
                           {shares > 1 && <span>×{shares}</span>}
                         </span>
@@ -188,7 +191,7 @@ export default function GridPage() {
                     return (
                       <td
                         key={m.id}
-                        className={`px-2 py-2.5 text-center ${!confirmed ? "bg-muted/30" : ""}`}
+                        className={`px-2 py-2.5 text-center ${!confirmed ? "bg-muted/60" : ""}`}
                       >
                         {cellContent}
                       </td>
@@ -200,10 +203,10 @@ export default function GridPage() {
 
             {charges.length > 0 && memberIds.length > 0 && (
               <tbody>
-                <tr>
+                <tr className="border-t-2 border-border">
                   <td
                     colSpan={members.length + 1}
-                    className="sticky left-0 z-10 bg-muted/20 px-4 pt-3 pb-1"
+                    className="sticky left-0 z-10 bg-slate-100 px-4 pt-3 pb-1"
                   >
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Shared charges
@@ -213,8 +216,8 @@ export default function GridPage() {
                 {charges.map((charge) => {
                   const alloc = allocateEqually(charge.amount, memberIds);
                   return (
-                    <tr key={charge.id} className="bg-muted/20">
-                      <td className="sticky left-0 z-10 bg-muted/20 min-w-[130px] max-w-[180px] px-4 py-2.5">
+                    <tr key={charge.id} className="bg-slate-100">
+                      <td className="sticky left-0 z-10 bg-slate-100 min-w-[130px] max-w-[180px] px-4 py-2.5">
                         <div className="flex items-center gap-1.5">
                           <Lock className="size-3 shrink-0 text-muted-foreground" />
                           <span className="text-body text-muted-foreground leading-snug">
@@ -240,10 +243,9 @@ export default function GridPage() {
             )}
 
             <tfoot>
-              <tr className="border-t-2 border-border">
+              <tr className="border-t-2 border-primary/40 bg-teal-50">
                 <td
-                  className="sticky left-0 z-10 bg-card px-4 py-3"
-                  style={{ borderTop: "2px solid hsl(var(--border))" }}
+                  className="sticky left-0 z-10 px-4 py-3 bg-teal-50"
                 >
                   <span className="text-body font-semibold text-foreground">Total</span>
                 </td>
@@ -258,9 +260,9 @@ export default function GridPage() {
                   return (
                     <td
                       key={m.id}
-                      className={`px-2 py-3 text-center font-semibold tabular-nums ${
-                        confirmed ? "text-foreground font-mono" : "text-muted-foreground font-mono"
-                      } ${!confirmed ? "bg-muted/30" : ""}`}
+                      className={`px-2 py-3 text-center font-semibold tabular-nums font-mono ${
+                        confirmed ? "text-foreground" : "text-muted-foreground"
+                      }`}
                     >
                       {display}
                     </td>
@@ -272,7 +274,7 @@ export default function GridPage() {
         </div>
       </div>
 
-      <div className="border-t bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col gap-2">
+      <div className="border-t bg-card px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex flex-col gap-2">
         <Button
           className="w-full"
           variant="default"
