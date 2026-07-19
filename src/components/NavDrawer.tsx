@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Home, Settings, ArrowLeftRight, LogOut, X, Copy, Check, Users } from "lucide-react";
+import { Home, Settings, ArrowLeftRight, LogOut, X, Copy, Check, Users, DoorOpen } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
-import { useHousehold, useMembers } from "@/lib/household";
+import { useHousehold, useMembers, leaveHousehold } from "@/lib/household";
 
 interface Props {
   householdId: string;
@@ -21,9 +21,19 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   const members = useMembers(householdId);
   const [showInvite, setShowInvite] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const me = members.find((m) => m.id === user?.uid);
   const isAdmin = me?.role === "admin";
+  const isCreator = !!user && household?.createdBy === user.uid;
+
+  const close = useCallback(() => {
+    setShowInvite(false);
+    setCopied(false);
+    setShowLeaveConfirm(false);
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -32,12 +42,18 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
+  }, [isOpen, close]);
 
-  function close() {
-    setShowInvite(false);
-    setCopied(false);
-    onClose();
+  async function handleLeave() {
+    if (!user) return;
+    setLeaving(true);
+    try {
+      await leaveHousehold(user, householdId);
+      onClose();
+      router.replace("/households");
+    } finally {
+      setLeaving(false);
+    }
   }
 
   async function handleSignOut() {
@@ -161,6 +177,41 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
             <ArrowLeftRight size={16} className="shrink-0 text-muted-foreground" />
             Switch Household
           </button>
+
+          {!isCreator && !showLeaveConfirm && (
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-destructive/10"
+              style={{ color: "var(--destructive)" }}
+            >
+              <DoorOpen size={16} className="shrink-0" />
+              Leave Group
+            </button>
+          )}
+
+          {!isCreator && showLeaveConfirm && (
+            <div className="mx-1 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5">
+              <p className="mb-2.5 text-xs text-foreground">
+                Leave <span className="font-semibold">{household?.name}</span>? You&apos;ll lose access to all its bills.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleLeave}
+                  disabled={leaving}
+                  className="flex-1 rounded-md px-3 py-1.5 text-xs font-medium text-white transition-colors"
+                  style={{ background: "var(--destructive)", opacity: leaving ? 0.6 : 1 }}
+                >
+                  {leaving ? "Leaving…" : "Yes, leave"}
+                </button>
+                <button
+                  onClick={() => setShowLeaveConfirm(false)}
+                  className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleSignOut}

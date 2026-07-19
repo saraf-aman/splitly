@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** Build 1/3 — Rename household → group (routes, code, UI; Firestore collections untouched). Then Leave group UI in NavDrawer. Then Splitwise OAuth connect/disconnect on picker screen.
+- **Next step:** Build 2/3 — Rename household → group (routes, code, UI; Firestore collections untouched). Then Splitwise OAuth connect/disconnect on picker screen.
 - **Shared charges split fix (done):** Tax/tip/service now split only among members with ≥1 item selected (`getActiveParticipants` in `splitCalc.ts`). Falls back to all members if nobody has items. Both `calculateSplit` and the grid page's per-row charge display use this. 20 tests pass.
 - **Firestore composite index:** `bills` on `(householdId ASC, createdAt DESC)` — created in `firestore.indexes.json` and deployed. Required for `useHouseholdBills` query to work server-side. Also add `"indexes": "firestore.indexes.json"` to `firebase.json` (already done this session).
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications), 8 (multi-household + dashboard nav), 9 (nav shell redesign + bills feed)
