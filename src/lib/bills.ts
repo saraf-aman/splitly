@@ -65,6 +65,12 @@ export async function confirmSelections(
   });
 }
 
+export async function forceSettleBill(billId: string, memberIds: string[]): Promise<void> {
+  const confirmedBy: Record<string, boolean> = {};
+  for (const id of memberIds) confirmedBy[`confirmedBy.${id}`] = true;
+  await updateDoc(doc(db, "bills", billId), confirmedBy);
+}
+
 export async function updateItemSelection(
   billId: string,
   itemId: string,

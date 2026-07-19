@@ -1,9 +1,9 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { Check, Clock, Lock, Pencil } from "lucide-react";
+import { Check, Clock, Lock, Pencil, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useBill, useBillItems, useSharedCharges } from "@/lib/bills";
+import { useBill, useBillItems, useSharedCharges, forceSettleBill } from "@/lib/bills";
 import { useMembers } from "@/lib/household";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
@@ -51,9 +51,16 @@ export default function GridPage() {
   const confirmedBy = bill.confirmedBy ?? {};
   const confirmedCount = members.filter((m) => confirmedBy[m.id]).length;
   const isUploader = bill.uploadedBy === uid;
+  const isAdmin = members.find((m) => m.id === uid)?.role === "admin";
+  const canForceSettle = (isUploader || isAdmin) && confirmedCount < members.length;
 
   const memberIds = members.map((m) => m.id);
   const totals = memberIds.length > 0 ? calculateSplit(items, charges, memberIds) : null;
+
+  async function handleForceSettle() {
+    await forceSettleBill(bill!.id, memberIds);
+    router.push(`/households/${householdId}`);
+  }
 
   return (
     <div className="flex flex-1 flex-col bg-background">
@@ -265,7 +272,7 @@ export default function GridPage() {
         </div>
       </div>
 
-      <div className="border-t bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <div className="border-t bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col gap-2">
         <Button
           className="w-full"
           variant="default"
@@ -273,6 +280,16 @@ export default function GridPage() {
         >
           Edit my selections
         </Button>
+        {canForceSettle && (
+          <Button
+            className="w-full gap-1.5"
+            variant="outline"
+            onClick={handleForceSettle}
+          >
+            <CheckCircle className="size-4" />
+            Mark as settled
+          </Button>
+        )}
       </div>
     </div>
   );

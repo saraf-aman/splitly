@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 9.4 — Bill history: hide *settled* bills older than 1 month from the feed (non-settled bills always show). No "show older" toggle. Filter client-side in `useHouseholdBills` or in the home page grouping logic.
+- **Next step:** 10.1 — Settings screen to connect a Splitwise API key + select/enter the target group.
 - **Firestore composite index:** `bills` on `(householdId ASC, createdAt DESC)` — created in `firestore.indexes.json` and deployed. Required for `useHouseholdBills` query to work server-side. Also add `"indexes": "firestore.indexes.json"` to `firebase.json` (already done this session).
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)

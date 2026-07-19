@@ -20,6 +20,14 @@ const SECTION_META: Record<Section, { label: string; stripe: string; pill: strin
   settled:  { label: "Settled",           stripe: "#2E6E6E", pill: "#E3EEEE", pillText: "#2E6E6E" },
 };
 
+const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+function isSettledAndOld(bill: Bill & { id: string }): boolean {
+  const ts = bill.createdAt;
+  if (!ts) return false;
+  return Date.now() - ts.toMillis() > ONE_MONTH_MS;
+}
+
 function getSection(bill: Bill & { id: string }, uid: string, memberIds: string[]): Section {
   if (bill.status === "pending_review") return "needs";
   const confirmedBy = bill.confirmedBy ?? {};
@@ -215,7 +223,14 @@ export default function HouseholdHomePage() {
 
   const sections: Section[] = ["needs", "progress", "settled"];
   const grouped = Object.fromEntries(
-    sections.map((s) => [s, bills.filter((b) => getSection(b, uid, memberIds) === s)])
+    sections.map((s) => [
+      s,
+      bills.filter((b) => {
+        if (getSection(b, uid, memberIds) !== s) return false;
+        if (s === "settled" && isSettledAndOld(b)) return false;
+        return true;
+      }),
+    ])
   ) as Record<Section, (Bill & { id: string })[]>;
 
   const hasBills = bills.length > 0;

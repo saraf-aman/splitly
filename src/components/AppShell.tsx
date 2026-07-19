@@ -102,9 +102,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             width: 38,
             height: 38,
             borderRadius: "50%",
-            background: "hsl(var(--background))",
-            border: "1px solid hsl(var(--border))",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+            background: "#FFFBF5",
+            border: "1px solid rgba(0,0,0,0.08)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.10)",
             fontSize: "18px",
             lineHeight: 1,
           }}
