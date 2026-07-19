@@ -21,7 +21,7 @@ function getAdminApp(): App {
   return adminApp;
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
 
 function redirectTo(path: string) {
   return NextResponse.redirect(`${APP_URL}${path}`);

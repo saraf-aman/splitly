@@ -42,7 +42,7 @@ async function verifyFirebaseIdToken(idToken: string): Promise<string | null> {
 
 export async function GET(req: NextRequest) {
   const clientId = process.env.SPLITWISE_CLIENT_ID;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "") || undefined;
   if (!clientId || !appUrl) {
     return NextResponse.json({ error: "Splitwise not configured" }, { status: 503 });
   }
