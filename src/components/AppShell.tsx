@@ -89,23 +89,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       </header>
 
-      {/* Floating liquid glass home button — outside the header, inner screens only */}
+      {/* Floating home button — outside the header, inner screens only */}
       {isInnerScreen && (
         <Link
           href={`/households/${hhId}`}
           aria-label="Go to household home"
-          className="fixed z-10 inline-flex items-center justify-center"
+          className="fixed inline-flex items-center justify-center"
           style={{
             top: NAV_H + 10,
             left: 24,
+            zIndex: 30,
             width: 38,
             height: 38,
             borderRadius: "50%",
-            background: "rgba(255,255,255,0.5)",
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
-            border: "1px solid rgba(255,255,255,0.8)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.7)",
+            background: "hsl(var(--background))",
+            border: "1px solid hsl(var(--border))",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
             fontSize: "18px",
             lineHeight: 1,
           }}

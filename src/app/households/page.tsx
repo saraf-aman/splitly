@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useUserHouseholds, useHouseholdList } from "@/lib/household";
 import { HouseholdFormCard } from "@/components/HouseholdFormCard";
-import { Button } from "@/components/ui/button";
 
 export default function HouseholdsPickerPage() {
   const { loading, householdIds } = useUserHouseholds();
@@ -13,7 +12,6 @@ export default function HouseholdsPickerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const joinMode = searchParams.get("join") === "1";
-  const [showAdd, setShowAdd] = useState(joinMode);
 
   useEffect(() => {
     if (loading) return;
@@ -21,7 +19,6 @@ export default function HouseholdsPickerPage() {
       router.replace("/onboarding");
       return;
     }
-    // Skip auto-redirect when user explicitly wants to add another household
     if (householdIds.length === 1 && !joinMode) {
       router.replace(`/households/${householdIds[0]}`);
     }
@@ -50,20 +47,9 @@ export default function HouseholdsPickerPage() {
         ))}
       </div>
 
-      {showAdd ? (
-        <div className="w-full pt-2">
-          <HouseholdFormCard />
-        </div>
-      ) : (
-        <Button
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => setShowAdd(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Add another household
-        </Button>
-      )}
+      <div className="w-full pt-2">
+        <HouseholdFormCard />
+      </div>
     </div>
   );
 }

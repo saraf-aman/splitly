@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Camera } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useMembers } from "@/lib/household";
@@ -208,7 +208,6 @@ function BillCard({
 export default function HouseholdHomePage() {
   const { householdId } = useParams<{ householdId: string }>();
   const { user } = useAuth();
-  const router = useRouter();
   const members = useMembers(householdId);
   const { bills, loading } = useHouseholdBills(householdId);
   const uid = user?.uid ?? "";
@@ -267,17 +266,6 @@ export default function HouseholdHomePage() {
           );
         })}
 
-        {/* UI gap fix: entry point to join/create another household */}
-        {!loading && (
-          <div className="flex justify-center pt-2">
-            <button
-              onClick={() => router.push("/households?join=1")}
-              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-            >
-              + Join or create another household
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Floating action button */}

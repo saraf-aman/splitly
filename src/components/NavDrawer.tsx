@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Home, Settings, ArrowLeftRight, LogOut, X } from "lucide-react";
+import { Home, Settings, ArrowLeftRight, LogOut, X, Copy, Check, Users } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
@@ -19,6 +19,8 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   const router = useRouter();
   const household = useHousehold(householdId);
   const members = useMembers(householdId);
+  const [showInvite, setShowInvite] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const me = members.find((m) => m.id === user?.uid);
   const isAdmin = me?.role === "admin";
@@ -26,21 +28,33 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [isOpen, onClose]);
 
-  async function handleSignOut() {
+  function close() {
+    setShowInvite(false);
+    setCopied(false);
     onClose();
+  }
+
+  async function handleSignOut() {
+    close();
     await signOut(auth);
     router.replace("/login");
   }
 
   function nav(href: string) {
-    onClose();
+    close();
     router.push(href);
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(householdId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -55,7 +69,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
           pointerEvents: isOpen ? "auto" : "none",
           transition: "opacity 200ms ease",
         }}
-        onClick={onClose}
+        onClick={close}
       />
 
       {/* Drawer panel */}
@@ -78,7 +92,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
             {household?.name ?? "—"}
           </span>
           <button
-            onClick={onClose}
+            onClick={close}
             aria-label="Close menu"
             className="flex items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             style={{ width: 32, height: 32 }}
@@ -106,6 +120,34 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
               Manage
             </button>
           )}
+
+          {/* Invite code — available to all members */}
+          <button
+            onClick={() => setShowInvite((v) => !v)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+          >
+            <Users size={16} className="shrink-0 text-muted-foreground" />
+            Invite Code
+          </button>
+
+          {showInvite && (
+            <div className="mx-1 mb-1 rounded-lg border border-border bg-secondary/60 px-3 py-2.5">
+              <p className="mb-1.5 text-xs text-muted-foreground">Share this code to invite someone:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 truncate rounded bg-background px-2 py-1 text-xs font-mono text-foreground border border-border">
+                  {householdId}
+                </code>
+                <button
+                  onClick={handleCopy}
+                  aria-label="Copy invite code"
+                  className="flex shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  style={{ width: 30, height: 30 }}
+                >
+                  {copied ? <Check size={13} className="text-green-600" /> : <Copy size={13} />}
+                </button>
+              </div>
+            </div>
+          )}
         </nav>
 
         <div className="mx-3 border-t border-border" />
@@ -113,7 +155,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
         {/* Secondary nav */}
         <nav className="flex flex-col gap-0.5 p-3">
           <button
-            onClick={() => nav("/households")}
+            onClick={() => nav("/households?join=1")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
             <ArrowLeftRight size={16} className="shrink-0 text-muted-foreground" />
