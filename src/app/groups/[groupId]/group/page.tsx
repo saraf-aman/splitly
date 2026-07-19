@@ -7,6 +7,7 @@ import {
   deleteGroup,
   removeMember,
   updateMemberRole,
+  setMemberSplitwiseId,
   useGroup,
   useMembers,
 } from "@/lib/group";
@@ -23,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CheckCircle, Loader2 } from "lucide-react";
 
 export default function GroupManagePage() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -31,6 +33,10 @@ export default function GroupManagePage() {
   const members = useMembers(groupId);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
+  // Splitwise ID inputs: memberId → pending text value
+  const [swIdInputs, setSwIdInputs] = useState<Record<string, string>>({});
+  const [swIdSaving, setSwIdSaving] = useState<string | null>(null);
+  const [swIdError, setSwIdError] = useState<Record<string, string>>({});
   const [deleting, setDeleting] = useState(false);
 
   if (!group) {
@@ -78,6 +84,28 @@ export default function GroupManagePage() {
       setDeleting(false);
     }
   }
+
+  async function handleSaveSwId(memberId: string) {
+    const raw = swIdInputs[memberId]?.trim() ?? "";
+    const parsed = parseInt(raw, 10);
+    if (!raw || isNaN(parsed) || parsed <= 0) {
+      setSwIdError((e) => ({ ...e, [memberId]: "Enter a valid Splitwise user ID (a positive number)." }));
+      return;
+    }
+    setSwIdSaving(memberId);
+    setSwIdError((e) => ({ ...e, [memberId]: "" }));
+    try {
+      await setMemberSplitwiseId(groupId, memberId, parsed);
+      setSwIdInputs((v) => ({ ...v, [memberId]: "" }));
+    } catch {
+      setSwIdError((e) => ({ ...e, [memberId]: "Could not save. Please try again." }));
+    } finally {
+      setSwIdSaving(null);
+    }
+  }
+
+  // Members that still need a Splitwise ID set
+  const unlinkedMembers = members.filter((m) => !m.splitwiseUserId);
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 bg-background px-6 py-8">
@@ -132,6 +160,77 @@ export default function GroupManagePage() {
           );
         })}
       </ul>
+
+      {/* Splitwise IDs — admin-only section */}
+      <div className="mt-2 flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-foreground">Splitwise IDs</h2>
+        <p className="text-xs text-muted-foreground">
+          Members with a Splitwise ID can be included in bill expenses. IDs are set automatically when someone connects their Splitwise account, or you can enter them manually for members who haven&apos;t connected yet.
+        </p>
+
+        <div className="flex flex-col gap-2">
+          {members.map((member) => {
+            const isSelf = member.id === user?.uid;
+            const hasId = !!member.splitwiseUserId;
+            const saving = swIdSaving === member.id;
+            const err = swIdError[member.id];
+
+            return (
+              <Card key={member.id} size="sm">
+                <CardContent className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-foreground">
+                      {member.displayName || "Unnamed"}
+                      {isSelf && <span className="text-muted-foreground"> (you)</span>}
+                    </span>
+                    {hasId ? (
+                      <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                        <CheckCircle size={12} />
+                        <span className="font-mono">{member.splitwiseUserId}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No ID</span>
+                    )}
+                  </div>
+
+                  {/* Input for members without an ID — admin can set it once */}
+                  {!hasId && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Splitwise user ID"
+                        value={swIdInputs[member.id] ?? ""}
+                        onChange={(e) =>
+                          setSwIdInputs((v) => ({ ...v, [member.id]: e.target.value }))
+                        }
+                        disabled={saving}
+                        className="h-8 text-xs font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 shrink-0 text-xs"
+                        disabled={saving || !swIdInputs[member.id]?.trim()}
+                        onClick={() => handleSaveSwId(member.id)}
+                      >
+                        {saving ? <Loader2 size={12} className="animate-spin" /> : "Save"}
+                      </Button>
+                    </div>
+                  )}
+                  {err && <p className="text-xs text-destructive">{err}</p>}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {unlinkedMembers.length === 0 && (
+          <p className="flex items-center gap-1.5 text-xs text-emerald-600">
+            <CheckCircle size={12} />
+            All members have a Splitwise ID — bill pushes will work for everyone.
+          </p>
+        )}
+      </div>
 
       {isCreator && (
         <Card className="mt-6 ring-destructive/30">

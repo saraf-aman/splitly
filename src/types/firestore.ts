@@ -28,6 +28,7 @@ export interface Member {
   role: Role;
   fcmTokens: string[];
   addedAt: Timestamp;
+  splitwiseUserId?: number; // set by self-connect (via OAuth callback) or by admin; persists across disconnect
 }
 
 export type BillStatus = "pending_review" | "open" | "settled";

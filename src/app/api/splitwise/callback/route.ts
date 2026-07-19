@@ -114,10 +114,27 @@ async function handleCallback(req: NextRequest) {
   const { user } = (await userRes.json()) as { user: { id: number } };
 
   // Persist token + Splitwise user ID on the Firebase user doc
-  await db.collection("users").doc(uid).set(
+  const userRef = db.collection("users").doc(uid);
+  await userRef.set(
     { splitwise: { accessToken: access_token, splitwiseUserId: user.id } },
     { merge: true },
   );
+
+  // Mirror splitwiseUserId to all the user's household member docs so:
+  // - admins can see who is linked without reading private user docs
+  // - the ID persists even if the user later disconnects (token removed but ID kept)
+  const userSnap = await userRef.get();
+  const householdIds = (userSnap.data()?.householdIds as string[] | undefined) ?? [];
+  if (householdIds.length > 0) {
+    const batch = db.batch();
+    for (const hid of householdIds) {
+      batch.update(
+        db.collection("households").doc(hid).collection("members").doc(uid),
+        { splitwiseUserId: user.id },
+      );
+    }
+    await batch.commit();
+  }
 
   // Clean up the one-time state doc
   await stateDoc.ref.delete();

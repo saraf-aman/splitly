@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Camera } from "lucide-react";
+import { useState } from "react";
+import { Camera, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useMembers } from "@/lib/group";
+import { useGroup, useMembers } from "@/lib/group";
 import { useGroupBills } from "@/lib/bills";
+import { useSplitwiseStatus } from "@/lib/splitwise";
 import { formatCents } from "@/lib/utils";
 import { NotificationBanner } from "@/components/NotificationBanner";
 import type { Bill, Member } from "@/types/firestore";
@@ -216,9 +218,37 @@ function BillCard({
 export default function GroupHomePage() {
   const { groupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
+  const group = useGroup(groupId);
   const members = useMembers(groupId);
   const { bills, loading } = useGroupBills(groupId);
+  const { loading: swLoading, connected: swConnected } = useSplitwiseStatus(user?.uid);
   const uid = user?.uid ?? "";
+
+  const [swConnecting, setSwConnecting] = useState(false);
+  const [swConnectError, setSwConnectError] = useState<string | null>(null);
+
+  // Show banner when: group has Splitwise configured AND current user is not connected
+  const showSwBanner = !swLoading && !swConnected && !!group?.splitwiseGroupId;
+
+  async function handleBannerConnect() {
+    if (!user) return;
+    setSwConnecting(true);
+    setSwConnectError(null);
+    try {
+      const idToken = await user.getIdToken();
+      const returnPath = window.location.pathname;
+      const res = await fetch(
+        `/api/splitwise/connect?returnPath=${encodeURIComponent(returnPath)}`,
+        { headers: { Authorization: `Bearer ${idToken}` } },
+      );
+      if (!res.ok) throw new Error("Failed");
+      const { authUrl } = (await res.json()) as { authUrl: string };
+      window.location.href = authUrl;
+    } catch {
+      setSwConnectError("Could not start connection. Try again.");
+      setSwConnecting(false);
+    }
+  }
   const memberIds = members.map((m) => m.id);
 
   const sections: Section[] = ["needs", "progress", "settled"];
@@ -238,6 +268,34 @@ export default function GroupHomePage() {
   return (
     <div className="relative flex flex-1 flex-col bg-background">
       <NotificationBanner />
+
+      {showSwBanner && (
+        <div
+          className="mx-4 mt-3 flex flex-col gap-2 rounded-xl px-4 py-3"
+          style={{ background: "rgba(46,110,110,0.08)", border: "1px solid rgba(46,110,110,0.2)" }}
+        >
+          <div className="flex flex-col gap-0.5">
+            <p className="text-xs font-semibold" style={{ color: "#2E6E6E" }}>
+              Connect Splitwise
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Your group uses Splitwise. Connect your account to be included in bill expenses.
+            </p>
+          </div>
+          <button
+            onClick={handleBannerConnect}
+            disabled={swConnecting}
+            className="flex w-fit items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity disabled:opacity-60"
+            style={{ background: "#2E6E6E" }}
+          >
+            {swConnecting && <Loader2 size={11} className="animate-spin" />}
+            {swConnecting ? "Connecting…" : "Connect now"}
+          </button>
+          {swConnectError && (
+            <p className="text-xs text-destructive">{swConnectError}</p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-6 pb-28">
         {loading && (

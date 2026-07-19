@@ -5,7 +5,7 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** Phase 10.2 — "Push to Splitwise" button on the final grid screen. Sends per-person totals as a Splitwise expense; payer = bill uploader. Needs: new API route `/api/splitwise/push`, button on grid page, handle members who haven't connected Splitwise yet.
+- **Next step:** Phase 10.2 — "Push to Splitwise" button on the final grid screen. Sends per-person totals as a Splitwise expense; payer = bill uploader. Needs: new API route `POST /api/splitwise/push`, `splitwiseExpenseId` field on bill doc, button on grid page (uploader-only, greyed until settled, shows "Pushed ✓" after). Members resolved via: `users/{uid}.splitwise.splitwiseUserId` (self-connected, active token) OR `members/{uid}.splitwiseUserId` (persisted ID — set by self-connect mirror or admin). Block push if any non-$0 member has neither. Payer's access token required from `users/{uid}.splitwise.accessToken`. Currency: USD.
 - **Phase 10.1 — Splitwise connect + group linking (done):**
   - **Vercel callback fix:** `NEXT_PUBLIC_APP_URL` had a trailing slash → double-slash in redirect_uri → Splitwise `invalid_grant`. Fixed with `.replace(/\/$/, "")` in both connect and callback routes.
   - **Connect/disconnect:** per-user OAuth in NavDrawer. `useSplitwiseStatus(uid)` realtime listener. Callback `returnPath` stored in state doc so user returns to their group page (not the picker) after OAuth.
