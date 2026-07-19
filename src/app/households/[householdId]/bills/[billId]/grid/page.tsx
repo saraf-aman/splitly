@@ -7,7 +7,7 @@ import { useBill, useBillItems, useSharedCharges, forceSettleBill } from "@/lib/
 import { useMembers } from "@/lib/household";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
-import { calculateSplit, allocateEqually } from "@/lib/splitCalc";
+import { calculateSplit, allocateEqually, getActiveParticipants } from "@/lib/splitCalc";
 import type { SharedChargeType } from "@/types/firestore";
 
 const CHARGE_LABELS: Record<SharedChargeType, string> = {
@@ -55,6 +55,7 @@ export default function GridPage() {
   const canForceSettle = (isUploader || isAdmin) && confirmedCount < members.length;
 
   const memberIds = members.map((m) => m.id);
+  const activeParticipants = getActiveParticipants(items, memberIds);
   const totals = memberIds.length > 0 ? calculateSplit(items, charges, memberIds) : null;
 
   async function handleForceSettle() {
@@ -214,7 +215,7 @@ export default function GridPage() {
                   </td>
                 </tr>
                 {charges.map((charge) => {
-                  const alloc = allocateEqually(charge.amount, memberIds);
+                  const alloc = allocateEqually(charge.amount, activeParticipants);
                   return (
                     <tr key={charge.id} className="bg-slate-100">
                       <td className="sticky left-0 z-10 bg-slate-100 min-w-[130px] max-w-[180px] px-4 py-2.5">

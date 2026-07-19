@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateSplit } from "../splitCalc";
+import { calculateSplit, getActiveParticipants } from "../splitCalc";
 import type { SplitItem, SplitCharge } from "../splitCalc";
 
 function sel(included: boolean, shares = 1) {
@@ -74,17 +74,25 @@ describe("calculateSplit", () => {
     expect(result.b).toBe(0);
   });
 
-  it("splits shared charges equally among all members regardless of selections", () => {
+  it("splits shared charges only among members with at least one item selected", () => {
     const items: SplitItem[] = [
       { price: 1000, selections: { a: sel(true), b: sel(false) } },
     ];
     const charges: SplitCharge[] = [{ amount: 200 }]; // tax = $2.00
     const result = calculateSplit(items, charges, ["a", "b"]);
-    // a: $10 item + $1 tax = $11
-    // b: $0 items + $1 tax = $1
-    expect(result.a).toBe(1100);
-    expect(result.b).toBe(100);
+    // a: $10 item + $2 tax (sole active participant) = $12
+    // b: $0 items + $0 tax (not active) = $0
+    expect(result.a).toBe(1200);
+    expect(result.b).toBe(0);
     expect(sumTotals(result)).toBe(1200);
+  });
+
+  it("falls back to all members for charges when nobody has any items selected", () => {
+    const charges: SplitCharge[] = [{ amount: 200 }];
+    const result = calculateSplit([], charges, ["a", "b"]);
+    expect(result.a).toBe(100);
+    expect(result.b).toBe(100);
+    expect(sumTotals(result)).toBe(200);
   });
 
   it("handles uneven shared charge remainder correctly", () => {
@@ -109,11 +117,26 @@ describe("calculateSplit", () => {
     const result = calculateSplit(items, charges, ["a", "b"]);
     const expectedTotal = 1500 + 900 + 300 + 150;
     expect(sumTotals(result)).toBe(expectedTotal);
+    // Both a and b are active (both have ≥1 item selected), so charges split equally
     // a's items: floor(1500*1/3)=500, plus 900 = 1400
     // b's items: floor(1500*2/3)=1000
     // charges: 450/2 = 225 each
     expect(result.a).toBe(500 + 900 + 225);
     expect(result.b).toBe(1000 + 225);
+  });
+
+  it("combined: charges only go to active members, inactive members pay $0 charges", () => {
+    const items: SplitItem[] = [
+      { price: 800, selections: { a: sel(true), b: sel(true), c: sel(false) } },
+    ];
+    const charges: SplitCharge[] = [{ amount: 200 }]; // tax
+    const result = calculateSplit(items, charges, ["a", "b", "c"]);
+    // c has no items — pays $0 tax
+    // a and b are active — split $200 tax equally = $100 each
+    expect(result.a).toBe(400 + 100);
+    expect(result.b).toBe(400 + 100);
+    expect(result.c).toBe(0);
+    expect(sumTotals(result)).toBe(1000);
   });
 
   it("handles a member with multiple shares in a non-divisible item", () => {
@@ -178,6 +201,30 @@ describe("calculateSplit", () => {
     const result = calculateSplit(items, [], ["a", "b"]);
     expect(sumTotals(result)).toBe(900); // 450 + 450; 'x' appears in result even though not in memberIds
     expect(result.x).toBe(450);
+  });
+
+  // — getActiveParticipants —
+
+  it("getActiveParticipants returns uids with at least one included item", () => {
+    const items: SplitItem[] = [
+      { price: 500, selections: { a: sel(true), b: sel(false), c: sel(true) } },
+      { price: 300, selections: { a: sel(false), b: sel(false) } },
+    ];
+    const result = getActiveParticipants(items, ["a", "b", "c"]);
+    expect(result.sort()).toEqual(["a", "c"]);
+  });
+
+  it("getActiveParticipants falls back to provided list when no selections exist", () => {
+    const items: SplitItem[] = [
+      { price: 500, selections: { a: sel(false), b: sel(false) } },
+    ];
+    const result = getActiveParticipants(items, ["a", "b"]);
+    expect(result.sort()).toEqual(["a", "b"]);
+  });
+
+  it("getActiveParticipants falls back when items array is empty", () => {
+    const result = getActiveParticipants([], ["a", "b", "c"]);
+    expect(result.sort()).toEqual(["a", "b", "c"]);
   });
 
   it("runtime assertion throws if total would mismatch (regression guard)", () => {

@@ -43,6 +43,19 @@ export function allocateEqually(amount: number, uids: string[]): Record<string, 
   return Object.fromEntries(uids.map((uid, i) => [uid, base + (i < leftover ? 1 : 0)]));
 }
 
+// Returns the UIDs of members who have at least one item selected (included: true).
+// Falls back to `fallback` when no member has any selection — avoids division by
+// zero and ensures charges are always distributed somewhere.
+export function getActiveParticipants(items: SplitItem[], fallback: string[]): string[] {
+  const active = new Set<string>();
+  for (const item of items) {
+    for (const [uid, sel] of Object.entries(item.selections)) {
+      if (sel.included) active.add(uid);
+    }
+  }
+  return active.size > 0 ? Array.from(active) : fallback;
+}
+
 // Returns per-member totals in cents.
 //
 // Hard guarantees (enforced by a runtime assertion):
@@ -50,7 +63,9 @@ export function allocateEqually(amount: number, uids: string[]): Record<string, 
 //                            + sum(charge.amount for all charges)
 //   2. No cent is ever lost or double-counted.
 //
-// `memberIds` controls who shares the charges (tax/tip/service).
+// `memberIds` seeds the result so every member appears (even with $0).
+// Shared charges (tax/tip/service) are split only among members who have
+// at least one item selected — if nobody has any items, all memberIds share.
 // Item costs go to whoever is in each item's `selections`, even if they are
 // not in `memberIds` — so callers must pass a complete member list.
 export function calculateSplit(
@@ -84,7 +99,8 @@ export function calculateSplit(
   expectedTotal += totalCharges;
 
   if (totalCharges > 0 && memberIds.length > 0) {
-    const chargeAlloc = allocateEqually(totalCharges, memberIds);
+    const chargeRecipients = getActiveParticipants(items, memberIds);
+    const chargeAlloc = allocateEqually(totalCharges, chargeRecipients);
     for (const [uid, amount] of Object.entries(chargeAlloc)) {
       totals[uid] = (totals[uid] ?? 0) + amount;
     }
