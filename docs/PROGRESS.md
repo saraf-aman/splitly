@@ -5,7 +5,8 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** 9.3 — Household home page redesign: bills feed (scrollable bill cards per `PROJECT_PLAN.md §14`), floating camera FAB bottom-right, empty state, and fix UI gap for single-household users (add "Join or create another household" entry point).
+- **Next step:** 9.4 — Bill history: hide *settled* bills older than 1 month from the feed (non-settled bills always show). No "show older" toggle. Filter client-side in `useHouseholdBills` or in the home page grouping logic.
+- **Firestore composite index:** `bills` on `(householdId ASC, createdAt DESC)` — created in `firestore.indexes.json` and deployed. Required for `useHouseholdBills` query to work server-side. Also add `"indexes": "firestore.indexes.json"` to `firebase.json` (already done this session).
 - **Phases complete:** 0 (scaffold), 1 (auth+household), 2 (bill upload+parse), 3 (design system), 4 (bill review+confirm), 5 (realtime selection screen), 6 (final grid + calculations), 7 (push notifications)
 - **Dev server:** port 3001 (port 3000 is a different app on this machine)
 - **Accent color:** Deep Teal `#2E6E6E` (swapped from amber after Phase 3.6); amber is used exclusively for owner-override UI (banner, checkboxes, Save button)
@@ -23,6 +24,34 @@ _Entry template:_
 ```
 
 ---
+
+## Bug fixes: routing, Confirm button, Firestore index  (2026-07-19)
+
+### Root cause discovered — Confirm button "permission denied"
+- The bill `IC0XTg1t9Vcv3RgertAY` visible in the app **did not exist on the Firestore server** — it was a ghost document in the IndexedDB offline cache from a failed development test write. Firebase Console confirmed the only real bill is `Anvw70mwZuoADg51IiHL` (already fully settled). All permission errors were because writes targeting a non-existent parent bill always fail at the `get(bills/billId)` call in the items security rule.
+- The `confirmSelections` code in `src/lib/bills.ts` is correct and was not the bug. The Firestore rules (full diff-check rule) are also correct.
+- Ghost document was cleared by deleting the Firestore IndexedDB cache. No code change needed for the confirm flow itself.
+
+### Composite index added
+- `useHouseholdBills` query (`where householdId + orderBy createdAt desc`) requires a Firestore composite index. Previously it only worked because the offline cache served results; without cache it silently returned empty.
+- Created `firestore.indexes.json` with `(householdId ASC, createdAt DESC)` index on the `bills` collection.
+- Updated `firebase.json` to reference `"indexes": "firestore.indexes.json"` (was missing, so prior deploys didn't register the index).
+- Deployed with `firebase deploy --only firestore:indexes`.
+
+### Other fixes
+- `getBillHref` routing: "in progress" bills (current user confirmed, others pending) now route to `/grid` instead of `/select`. (`src/app/households/[householdId]/page.tsx`)
+- Removed unused `_memberIds` parameter from `getBillHref` signature.
+- Restored full diff-check Firestore rule for `items` update (the TEMP simplified rule was reverted). (`firestore.rules`)
+- 9.4 spec corrected in ROADMAP.md: only *settled* bills hidden after 1 month, not all bills after 2 weeks.
+
+## 9.3 — Household home redesign: bills feed + FAB  (2026-07-18)
+- `src/lib/bills.ts`: added `useHouseholdBills(householdId)` — `onSnapshot` on `bills` where `householdId == hhId`, ordered by `createdAt desc`. Needs a Firestore composite index in production.
+- `src/app/households/[householdId]/page.tsx`: full rewrite. Bills feed with 3 sections (Needs your input / In progress / Settled), each with a colored section label and bill cards. `pending_review` bills land in "Needs your input". Empty state (🧾 emoji) when no bills. Teal camera FAB fixed bottom-right.
+- Bill card anatomy per `PROJECT_PLAN.md §14`: merchant name + date, large Geist Mono amount (teal when settled, dark otherwise), status pill, "Uploaded by" line, member chips (amber pending-me, teal confirmed-others, teal+ring confirmed-me, gray pending-others).
+- Card tap destinations: `pending_review` → review, `open` → select, fully confirmed → grid.
+- UI gap fix: "+ Join or create another household" text button at bottom of feed → `/households?join=1`.
+- `src/app/households/page.tsx`: `?join=1` param skips single-household auto-redirect and opens the form by default.
+- Old placeholder (Upload button, Manage link, Sign out button) removed — these are now in the hamburger drawer.
 
 ## 9.2 — Hamburger drawer component  (2026-07-18)
 - New `src/components/NavDrawer.tsx`: slides in from right (220ms ease-out). Backdrop fades in at `rgba(26,26,31,0.36)`, dismisses on click.

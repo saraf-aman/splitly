@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, Plus } from "lucide-react";
 import { useUserHouseholds, useHouseholdList } from "@/lib/household";
 import { HouseholdFormCard } from "@/components/HouseholdFormCard";
@@ -11,7 +11,9 @@ export default function HouseholdsPickerPage() {
   const { loading, householdIds } = useUserHouseholds();
   const households = useHouseholdList(householdIds);
   const router = useRouter();
-  const [showAdd, setShowAdd] = useState(false);
+  const searchParams = useSearchParams();
+  const joinMode = searchParams.get("join") === "1";
+  const [showAdd, setShowAdd] = useState(joinMode);
 
   useEffect(() => {
     if (loading) return;
@@ -19,13 +21,14 @@ export default function HouseholdsPickerPage() {
       router.replace("/onboarding");
       return;
     }
-    if (householdIds.length === 1) {
+    // Skip auto-redirect when user explicitly wants to add another household
+    if (householdIds.length === 1 && !joinMode) {
       router.replace(`/households/${householdIds[0]}`);
     }
-  }, [loading, householdIds, router]);
+  }, [loading, householdIds, router, joinMode]);
 
-  // Show nothing while redirecting (0 or 1 household cases)
-  if (loading || householdIds.length < 2) return null;
+  // Show nothing while redirecting (0 or 1 household when not in join mode)
+  if (loading || (householdIds.length < 2 && !joinMode)) return null;
 
   return (
     <div className="flex flex-1 flex-col items-center gap-6 bg-background px-6 pt-12 pb-8">

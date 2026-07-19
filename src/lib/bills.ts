@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, onSnapshot, updateDoc, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc, where, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import type { Bill, BillItem, ParsedReceipt, SharedCharge, SharedChargeType } from "@/types/firestore";
 
@@ -45,26 +45,24 @@ export async function confirmSelections(
   uid: string,
   items: Array<{ id: string; selections: Record<string, { included: boolean; shares: number; setBy: string }> }>,
 ): Promise<void> {
-  const batch = writeBatch(db);
-
-  // Write the effective selection for every item (including untouched defaults)
-  // so the grid shows accurate data for confirmed members.
-  for (const item of items) {
-    const sel = item.selections[uid];
-    batch.update(doc(db, "bills", billId, "items", item.id), {
-      [`selections.${uid}`]: {
-        included: sel?.included ?? true,
-        shares: sel?.shares ?? 1,
-        setBy: uid,
-      },
-    });
+  if (items.length > 0) {
+    const batch = writeBatch(db);
+    for (const item of items) {
+      const sel = item.selections[uid];
+      batch.update(doc(db, "bills", billId, "items", item.id), {
+        [`selections.${uid}`]: {
+          included: sel?.included ?? true,
+          shares: sel?.shares ?? 1,
+          setBy: uid,
+        },
+      });
+    }
+    await batch.commit();
   }
 
-  batch.update(doc(db, "bills", billId), {
+  await updateDoc(doc(db, "bills", billId), {
     [`confirmedBy.${uid}`]: true,
   });
-
-  await batch.commit();
 }
 
 export async function updateItemSelection(
@@ -176,6 +174,29 @@ export function useBillItems(billId: string | null) {
   }, [billId]);
 
   return { items, loading: billId === null ? false : loading };
+}
+
+export function useHouseholdBills(householdId: string | null) {
+  const [bills, setBills] = useState<(Bill & { id: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!householdId) return;
+    return onSnapshot(
+      query(
+        collection(db, "bills"),
+        where("householdId", "==", householdId),
+        orderBy("createdAt", "desc"),
+      ),
+      (snap) => {
+        setBills(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Bill) })));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+  }, [householdId]);
+
+  return { bills, loading };
 }
 
 export async function createBill(user: User, householdId: string, parsed: ParsedBill): Promise<string> {

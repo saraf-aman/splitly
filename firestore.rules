@@ -109,7 +109,7 @@ service cloud.firestore {
           ) && (
             get(/databases/$(database)/documents/bills/$(billId)).data.uploadedBy == request.auth.uid
             ||
-            request.resource.data.selections.diff(resource.data.selections)
+            request.resource.data.selections.diff(resource.data.get('selections', {}))
               .affectedKeys().hasOnly([request.auth.uid])
           );
       }

@@ -29,6 +29,8 @@ export default function SelectItemsPage() {
   const members = useMembers(bill?.householdId ?? null);
 
   const [sharesItemId, setSharesItemId] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const loading = billLoading || itemsLoading || chargesLoading;
   const uid = user?.uid ?? "";
@@ -208,15 +210,30 @@ export default function SelectItemsPage() {
           </Button>
         ) : (
           <>
+            {confirmError && (
+              <p className="mb-2 text-xs text-destructive text-center">{confirmError}</p>
+            )}
             <Button
               className="w-full"
               variant="default"
+              disabled={confirming || !uid}
               onClick={async () => {
-                await confirmSelections(billId, uid, items);
-                router.push(`/households/${householdId}/bills/${billId}/grid`);
+                setConfirming(true);
+                setConfirmError(null);
+                console.log("[confirm] uid:", uid, "billId:", billId, "items:", items.length);
+                try {
+                  await confirmSelections(billId, uid, items);
+                  router.push(`/households/${householdId}/bills/${billId}/grid`);
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  console.error("[confirm] failed:", msg);
+                  setConfirmError(msg);
+                } finally {
+                  setConfirming(false);
+                }
               }}
             >
-              Confirm
+              {confirming ? "Saving…" : "Confirm"}
             </Button>
           </>
         )}
