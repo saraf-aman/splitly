@@ -19,7 +19,8 @@ _Update this block at the end of every session. This is the only section a new s
   - **Group linking (owner only):** NavDrawer shows "Link Splitwise group" picker for the creator when connected. Fetches their groups via `/api/splitwise/groups`. Saves `splitwiseGroupId + splitwiseGroupName` to the household doc (Firestore rule restricts these fields to creator). All connected members see the linked group name; owner gets "Unlink" button.
   - **Connect banner:** group home page shows a teal banner every session for members who haven't connected Splitwise when the group has a Splitwise group configured. "Connect now" kicks off OAuth directly from the banner, returning to the same page.
   - **`splitwiseEmail` field:** `members/{uid}.splitwiseEmail?: string` — admin-set alternate Splitwise email for unlinked members whose Splitwise account email differs from their Google email. Ignored at push time for members who have `splitwiseUserId`. Firestore rule: admin can freely set/update `splitwiseEmail` on any member doc.
-  - **Manage page rewrite:** compact CSS-grid table (not cards) — `gridTemplateColumns: "1fr 72px 80px 28px"` so Splitwise status / role / trash columns align perfectly across all rows. "Splitwise accounts" section appears only when group has a Splitwise group AND there are unlinked members — admin enters alternate Splitwise email there. Linked members (have `splitwiseUserId`) never appear in that section.
+  - **Manage page rewrite:** compact CSS-grid table (not cards) — `gridTemplateColumns: "1fr 72px 80px 28px"` so Splitwise status / role / trash columns align perfectly across all rows. Badge and Select both fill the same 80px cell (`w-full`). Trash icon always `text-destructive`; hover → `text-red-900` + `[&:hover_svg]:stroke-[2.5]` for darker/bolder effect. "Splitwise accounts" section appears only when group has a Splitwise group AND there are unlinked members — admin enters alternate Splitwise email there. Linked members (have `splitwiseUserId`) never appear in that section.
+  - **Splitwise group membership check (NavDrawer):** when a user is connected and the group has a linked Splitwise group, the drawer checks on open (via `/api/splitwise/groups`) whether the user is actually a member of that Splitwise group. Member → green chip as normal. Not a member → amber warning card: "Not in this group — You're not a member of '…' on Splitwise. Ask the group owner to add you there." Spinner shown while checking. Result cached per (connected + linked group) session; resets automatically if either changes. The fetched groups list is also cached into `swGroups` so the owner's link picker avoids a second API call. Uses `void Promise.resolve().then(...)` for the synchronous `setState` call to satisfy the `react-hooks/set-state-in-effect` lint rule.
   - **Groups picker redesign:** Splitwise section removed; "Add / Join Group" is a collapsed button at the top; group list below.
   - **Data model:** `households/{groupId}.splitwiseGroupId?: number`, `.splitwiseGroupName?: string`; `users/{uid}.splitwise = { accessToken, splitwiseUserId }`; `members/{uid}.splitwiseUserId?: number`; `members/{uid}.splitwiseEmail?: string`
   - **API routes:** `/api/splitwise/connect` (GET, stores returnPath in state), `/api/splitwise/callback` (GET, mirrors splitwiseUserId to all household member docs, redirects to returnPath), `/api/splitwise/groups` (GET, fetches user's Splitwise groups)
@@ -48,6 +49,25 @@ _Entry template:_
 ## [Step] — [title]  (YYYY-MM-DD)
 - Built / Files / Deviations / Next session should know
 ```
+
+---
+
+## Phase 10.1 — Manage page polish + Splitwise membership check  (2026-07-19)
+
+### Manage page: column alignment + trash icon
+- Switched member table rows from `flex` to CSS `grid` (`gridTemplateColumns: "1fr 72px 80px 28px"`) so the Splitwise status, role, and action columns are enforced at exactly the same widths across every row — flex cannot guarantee this across sibling elements.
+- `Badge` given `w-full justify-center` so it fills the same 80px cell as the `SelectTrigger`, making the readonly and editable rows visually identical in width.
+- Trash icon: always `text-destructive` (red). Hover state: `hover:text-red-900` (darker) + `[&:hover_svg]:stroke-[2.5]` (bolder stroke). Changed `transition-opacity` → `transition-colors`.
+- "Splitwise" chip text replaces "SW" abbreviation: small, light-weight green text (`text-[10px] font-light`, `color: #2E6E6E`) with `CheckCircle` icon — no background pill.
+
+### NavDrawer: Splitwise group membership check
+- `src/components/NavDrawer.tsx`: when a user is connected to Splitwise AND the group has a linked Splitwise group, the drawer now checks on open whether the user is actually a member of that Splitwise group.
+- Calls `/api/splitwise/groups` (same endpoint used for the owner's link picker); checks if `household.splitwiseGroupId` appears in the returned list.
+- **Member** → green chip with group name (existing behavior), spinner while checking.
+- **Not a member** → amber warning card: "Not in this group / You're not a member of '…' on Splitwise. Ask the group owner to add you there."
+- State: `SwMembership = "idle" | "checking" | "member" | "not-member"`. Resets to `"idle"` whenever `swConnected` or `linkedGroupId` changes (separate effect). Result cached for the session — no re-fetch on subsequent drawer opens.
+- Side effect: fetched groups list is cached into `swGroups` so the owner's link picker skips a second fetch.
+- `setSwMembership("checking")` deferred via `void Promise.resolve().then(...)` to satisfy the `react-hooks/set-state-in-effect` lint rule (same pattern used elsewhere in the codebase).
 
 ---
 
