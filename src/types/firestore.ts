@@ -2,19 +2,19 @@ import type { Timestamp } from "firebase/firestore";
 
 export type Role = "admin" | "guest";
 
-// users/{userId} — reverse index from auth uid to the user's households, for post-login routing
+// users/{userId} — reverse index from auth uid to the user's groups, for post-login routing
 export interface UserDoc {
-  householdIds: string[];
+  householdIds: string[]; // Firestore field name — do not rename
 }
 
-// households/{householdId}
-export interface Household {
+// households/{groupId}
+export interface Group {
   name: string;
   createdAt: Timestamp;
   createdBy: string; // userId of the creator — lets Firestore rules bootstrap the first admin member
 }
 
-// households/{householdId}/members/{userId}
+// households/{groupId}/members/{userId}
 export interface Member {
   displayName: string;
   photoUrl: string;
@@ -46,7 +46,7 @@ export interface ParsedReceipt {
 
 // bills/{billId}
 export interface Bill {
-  householdId: string;
+  householdId: string; // Firestore field name — do not rename
   uploadedBy: string; // userId
   restaurantOrStoreName: string | null;
   billDate: Timestamp;

@@ -182,16 +182,16 @@ export function useBillItems(billId: string | null) {
   return { items, loading: billId === null ? false : loading };
 }
 
-export function useHouseholdBills(householdId: string | null) {
+export function useGroupBills(groupId: string | null) {
   const [bills, setBills] = useState<(Bill & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!householdId) return;
+    if (!groupId) return;
     return onSnapshot(
       query(
         collection(db, "bills"),
-        where("householdId", "==", householdId),
+        where("householdId", "==", groupId),
         orderBy("createdAt", "desc"),
       ),
       (snap) => {
@@ -200,15 +200,15 @@ export function useHouseholdBills(householdId: string | null) {
       },
       () => setLoading(false),
     );
-  }, [householdId]);
+  }, [groupId]);
 
   return { bills, loading };
 }
 
-export async function createBill(user: User, householdId: string, parsed: ParsedBill): Promise<string> {
+export async function createBill(user: User, groupId: string, parsed: ParsedBill): Promise<string> {
   const { restaurantOrStoreName, billDate, ...parsedResult } = parsed;
   const billRef = await addDoc(collection(db, "bills"), {
-    householdId,
+    householdId: groupId,
     uploadedBy: user.uid,
     restaurantOrStoreName,
     billDate: billDate ? Timestamp.fromDate(new Date(billDate)) : serverTimestamp(),

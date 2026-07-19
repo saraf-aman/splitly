@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Camera } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useMembers } from "@/lib/household";
-import { useHouseholdBills } from "@/lib/bills";
+import { useMembers } from "@/lib/group";
+import { useGroupBills } from "@/lib/bills";
 import { formatCents } from "@/lib/utils";
 import { NotificationBanner } from "@/components/NotificationBanner";
 import type { Bill, Member } from "@/types/firestore";
@@ -44,13 +44,13 @@ function getBillStatusLabel(bill: Bill & { id: string }, uid: string, memberIds:
   return "Needs your input";
 }
 
-function getBillHref(bill: Bill & { id: string }, householdId: string, uid: string): string {
-  if (bill.status === "pending_review") return `/households/${householdId}/bills/${bill.id}/review`;
+function getBillHref(bill: Bill & { id: string }, groupId: string, uid: string): string {
+  if (bill.status === "pending_review") return `/groups/${groupId}/bills/${bill.id}/review`;
   const confirmedBy = bill.confirmedBy ?? {};
   // Once the current user has confirmed their selections, show the grid.
   // Others may still be pending — that's visible in the grid's status banner.
-  if (confirmedBy[uid]) return `/households/${householdId}/bills/${bill.id}/grid`;
-  return `/households/${householdId}/bills/${bill.id}/select`;
+  if (confirmedBy[uid]) return `/groups/${groupId}/bills/${bill.id}/grid`;
+  return `/groups/${groupId}/bills/${bill.id}/select`;
 }
 
 function formatBillDate(bill: Bill & { id: string }): string {
@@ -110,12 +110,12 @@ function MemberChip({ member, confirmed, isMe }: { member: Member & { id: string
 
 function BillCard({
   bill,
-  householdId,
+  groupId,
   uid,
   members,
 }: {
   bill: Bill & { id: string };
-  householdId: string;
+  groupId: string;
   uid: string;
   members: (Member & { id: string })[];
 }) {
@@ -123,7 +123,7 @@ function BillCard({
   const section = getSection(bill, uid, memberIds);
   const meta = SECTION_META[section];
   const statusLabel = getBillStatusLabel(bill, uid, memberIds);
-  const href = getBillHref(bill, householdId, uid);
+  const href = getBillHref(bill, groupId, uid);
   const confirmedBy = bill.confirmedBy ?? {};
   const total = bill.parsedResult?.total;
   const isSettled = section === "settled";
@@ -213,11 +213,11 @@ function BillCard({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function HouseholdHomePage() {
-  const { householdId } = useParams<{ householdId: string }>();
+export default function GroupHomePage() {
+  const { groupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
-  const members = useMembers(householdId);
-  const { bills, loading } = useHouseholdBills(householdId);
+  const members = useMembers(groupId);
+  const { bills, loading } = useGroupBills(groupId);
   const uid = user?.uid ?? "";
   const memberIds = members.map((m) => m.id);
 
@@ -272,7 +272,7 @@ export default function HouseholdHomePage() {
                 <BillCard
                   key={bill.id}
                   bill={bill}
-                  householdId={householdId}
+                  groupId={groupId}
                   uid={uid}
                   members={members}
                 />
@@ -285,7 +285,7 @@ export default function HouseholdHomePage() {
 
       {/* Floating action button */}
       <Link
-        href={`/households/${householdId}/bills/new`}
+        href={`/groups/${groupId}/bills/new`}
         aria-label="Upload a bill"
         className="fixed bottom-8 right-6 flex items-center justify-center rounded-full"
         style={{

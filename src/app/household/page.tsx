@@ -2,16 +2,16 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUserHousehold } from "@/lib/household";
+import { useUserGroup } from "@/lib/group";
 
-export default function HouseholdRedirect() {
-  const { householdId, loading } = useUserHousehold();
+export default function GroupManageRedirect() {
+  const { groupId, loading } = useUserGroup();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading || !householdId) return;
-    router.replace(`/households/${householdId}/household`);
-  }, [loading, householdId, router]);
+    if (loading || !groupId) return;
+    router.replace(`/groups/${groupId}/group`);
+  }, [loading, groupId, router]);
 
   return null;
 }

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import { AuthGate } from "@/components/AuthGate";
-import { HouseholdGate } from "@/components/HouseholdGate";
+import { GroupGate } from "@/components/GroupGate";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Splitly",
-  description: "Split household grocery and restaurant bills with your roommates.",
+  description: "Split grocery and restaurant bills with your group.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -51,9 +51,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <AuthGate>
-            <HouseholdGate>
+            <GroupGate>
               <AppShell>{children}</AppShell>
-            </HouseholdGate>
+            </GroupGate>
           </AuthGate>
         </AuthProvider>
       </body>

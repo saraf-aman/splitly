@@ -6,7 +6,7 @@ import { Home, Settings, ArrowLeftRight, LogOut, X, Copy, Check, Users, DoorOpen
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
-import { useHousehold, useMembers, leaveHousehold } from "@/lib/household";
+import { useGroup, useMembers, leaveGroup } from "@/lib/group";
 
 interface Props {
   householdId: string;
@@ -17,7 +17,7 @@ interface Props {
 export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   const { user } = useAuth();
   const router = useRouter();
-  const household = useHousehold(householdId);
+  const household = useGroup(householdId);
   const members = useMembers(householdId);
   const [showInvite, setShowInvite] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -48,9 +48,9 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
     if (!user) return;
     setLeaving(true);
     try {
-      await leaveHousehold(user, householdId);
+      await leaveGroup(user, householdId);
       onClose();
-      router.replace("/households");
+      router.replace("/groups");
     } finally {
       setLeaving(false);
     }
@@ -120,7 +120,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
         {/* Primary nav */}
         <nav className="flex flex-col gap-0.5 p-3">
           <button
-            onClick={() => nav(`/households/${householdId}`)}
+            onClick={() => nav(`/groups/${householdId}`)}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
             <Home size={16} className="shrink-0 text-muted-foreground" />
@@ -129,7 +129,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
 
           {isAdmin && (
             <button
-              onClick={() => nav(`/households/${householdId}/household`)}
+              onClick={() => nav(`/groups/${householdId}/group`)}
               className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
             >
               <Settings size={16} className="shrink-0 text-muted-foreground" />
@@ -171,7 +171,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
         {/* Secondary nav */}
         <nav className="flex flex-col gap-0.5 p-3">
           <button
-            onClick={() => nav("/households?join=1")}
+            onClick={() => nav("/groups?join=1")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
             <ArrowLeftRight size={16} className="shrink-0 text-muted-foreground" />

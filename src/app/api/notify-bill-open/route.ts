@@ -23,14 +23,14 @@ function getAdminApp(): App {
 }
 
 export async function POST(req: NextRequest) {
-  const { billId, householdId, uploaderUid, billName } = (await req.json()) as {
+  const { billId, groupId, uploaderUid, billName } = (await req.json()) as {
     billId: string;
-    householdId: string;
+    groupId: string;
     uploaderUid: string;
     billName: string | null;
   };
 
-  if (!billId || !householdId || !uploaderUid) {
+  if (!billId || !groupId || !uploaderUid) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   const membersSnap = await adminDb
     .collection("households")
-    .doc(householdId)
+    .doc(groupId)
     .collection("members")
     .get();
 
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       Array.from(staleByMember.entries()).map(([memberId, staleTokens]) =>
         adminDb
           .collection("households")
-          .doc(householdId)
+          .doc(groupId)
           .collection("members")
           .doc(memberId)
           .update({ fcmTokens: FieldValue.arrayRemove(...staleTokens) }),

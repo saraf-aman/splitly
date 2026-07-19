@@ -34,7 +34,7 @@ function formatBlur(str: string): string {
 
 export default function ReviewBillPage() {
   const router = useRouter();
-  const { householdId, billId } = useParams<{ householdId: string; billId: string }>();
+  const { groupId, billId } = useParams<{ groupId: string; billId: string }>();
   const { user } = useAuth();
   const uid = useId();
 
@@ -116,7 +116,7 @@ export default function ReviewBillPage() {
           }),
         }).catch(() => {});
       }
-      router.push(`/households/${householdId}/bills/${billId}/select`);
+      router.push(`/groups/${groupId}/bills/${billId}/select`);
     } finally {
       setSaving(false);
     }
@@ -134,7 +134,7 @@ export default function ReviewBillPage() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
         <p className="text-body text-muted-foreground">Bill not found.</p>
-        <Button variant="outline" onClick={() => router.push(`/households/${householdId}`)}>
+        <Button variant="outline" onClick={() => router.push(`/groups/${groupId}`)}>
           Go home
         </Button>
       </div>
@@ -146,7 +146,7 @@ export default function ReviewBillPage() {
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
         <p className="text-heading text-foreground">Bill already confirmed</p>
         <p className="text-body text-muted-foreground">This bill has already been confirmed and is open for selections.</p>
-        <Button variant="outline" onClick={() => router.push(`/households/${householdId}`)}>
+        <Button variant="outline" onClick={() => router.push(`/groups/${groupId}`)}>
           Go home
         </Button>
       </div>
@@ -160,7 +160,7 @@ export default function ReviewBillPage() {
         <p className="text-body text-muted-foreground">
           The person who uploaded this bill is reviewing the items. Check back soon.
         </p>
-        <Button variant="outline" onClick={() => router.push(`/households/${householdId}`)}>
+        <Button variant="outline" onClick={() => router.push(`/groups/${groupId}`)}>
           Go home
         </Button>
       </div>

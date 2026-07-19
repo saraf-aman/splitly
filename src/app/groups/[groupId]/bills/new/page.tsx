@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function NewBillPage() {
   const router = useRouter();
-  const { householdId } = useParams<{ householdId: string }>();
+  const { groupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -25,13 +25,13 @@ export default function NewBillPage() {
   }
 
   async function handleUpload() {
-    if (!file || !user || !householdId) return;
+    if (!file || !user || !groupId) return;
     setSubmitting(true);
     setError(null);
     try {
       const parsed = await parseBillImage(file);
-      const billId = await createBill(user, householdId, parsed);
-      router.push(`/households/${householdId}/bills/${billId}/review`);
+      const billId = await createBill(user, groupId, parsed);
+      router.push(`/groups/${groupId}/bills/${billId}/review`);
     } catch {
       setError("Couldn't parse that receipt. Please try again.");
     } finally {

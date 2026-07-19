@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Check, Clock, Lock, Pencil, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges, forceSettleBill } from "@/lib/bills";
-import { useMembers } from "@/lib/household";
+import { useMembers } from "@/lib/group";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
 import { calculateSplit, allocateEqually, getActiveParticipants } from "@/lib/splitCalc";
@@ -18,7 +18,7 @@ const CHARGE_LABELS: Record<SharedChargeType, string> = {
 };
 
 export default function GridPage() {
-  const { householdId, billId } = useParams<{ householdId: string; billId: string }>();
+  const { groupId, billId } = useParams<{ groupId: string; billId: string }>();
   const router = useRouter();
   const { user } = useAuth();
   const { bill, loading: billLoading } = useBill(billId);
@@ -41,7 +41,7 @@ export default function GridPage() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
         <p className="text-body text-muted-foreground">Bill not found.</p>
-        <Button variant="outline" onClick={() => router.push(`/households/${householdId}`)}>
+        <Button variant="outline" onClick={() => router.push(`/groups/${groupId}`)}>
           Go home
         </Button>
       </div>
@@ -60,7 +60,7 @@ export default function GridPage() {
 
   async function handleForceSettle() {
     await forceSettleBill(bill!.id, memberIds);
-    router.push(`/households/${householdId}`);
+    router.push(`/groups/${groupId}`);
   }
 
   return (
@@ -120,7 +120,7 @@ export default function GridPage() {
                         {canEdit && (
                           <button
                             className="flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground hover:bg-secondary"
-                            onClick={() => router.push(`/households/${householdId}/bills/${billId}/select?as=${m.id}`)}
+                            onClick={() => router.push(`/groups/${groupId}/bills/${billId}/select?as=${m.id}`)}
                           >
                             <Pencil className="size-2.5" />
                             Edit
@@ -279,7 +279,7 @@ export default function GridPage() {
         <Button
           className="w-full"
           variant="default"
-          onClick={() => router.push(`/households/${householdId}/bills/${billId}/select`)}
+          onClick={() => router.push(`/groups/${groupId}/bills/${billId}/select`)}
         >
           Edit my selections
         </Button>

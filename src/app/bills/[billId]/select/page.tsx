@@ -2,17 +2,17 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useUserHousehold } from "@/lib/household";
+import { useUserGroup } from "@/lib/group";
 
 export default function SelectRedirect() {
   const { billId } = useParams<{ billId: string }>();
-  const { householdId, loading } = useUserHousehold();
+  const { groupId, loading } = useUserGroup();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading || !householdId) return;
-    router.replace(`/households/${householdId}/bills/${billId}/select`);
-  }, [loading, householdId, billId, router]);
+    if (loading || !groupId) return;
+    router.replace(`/groups/${groupId}/bills/${billId}/select`);
+  }, [loading, groupId, billId, router]);
 
   return null;
 }

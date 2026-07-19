@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { createHousehold, joinHousehold } from "@/lib/household";
+import { createGroup, joinGroup } from "@/lib/group";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ interface Props {
   description?: string;
 }
 
-export function HouseholdFormCard({ title, description }: Props) {
+export function GroupFormCard({ title, description }: Props) {
   const { user } = useAuth();
   const [mode, setMode] = useState<"create" | "join">("create");
   const [name, setName] = useState("");
@@ -28,10 +28,10 @@ export function HouseholdFormCard({ title, description }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      await createHousehold(user, name.trim());
+      await createGroup(user, name.trim());
       setName("");
     } catch {
-      setError("Couldn't create the household. Please try again.");
+      setError("Couldn't create the group. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -43,10 +43,10 @@ export function HouseholdFormCard({ title, description }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      await joinHousehold(user, code.trim());
+      await joinGroup(user, code.trim());
       setCode("");
     } catch {
-      setError("That household ID doesn't look right. Double-check it and try again.");
+      setError("That invite code doesn't look right. Double-check it and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -72,7 +72,7 @@ export function HouseholdFormCard({ title, description }: Props) {
               : "text-muted-foreground",
           )}
         >
-          Create household
+          Create group
         </button>
         <button
           type="button"
@@ -82,7 +82,7 @@ export function HouseholdFormCard({ title, description }: Props) {
             mode === "join" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
           )}
         >
-          Join household
+          Join group
         </button>
       </div>
 
@@ -91,7 +91,7 @@ export function HouseholdFormCard({ title, description }: Props) {
           {mode === "create" ? (
             <form onSubmit={handleCreate} className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="hf-name">Household name</Label>
+                <Label htmlFor="hf-name">Group name</Label>
                 <Input
                   id="hf-name"
                   value={name}
@@ -105,18 +105,18 @@ export function HouseholdFormCard({ title, description }: Props) {
                 disabled={submitting || !name.trim()}
                 className="h-11 text-base"
               >
-                {submitting ? "Creating..." : "Create household"}
+                {submitting ? "Creating..." : "Create group"}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleJoin} className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="hf-code">Household ID</Label>
+                <Label htmlFor="hf-code">Invite code</Label>
                 <Input
                   id="hf-code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="Invite ID"
+                  placeholder="Paste invite code"
                   className="h-11 font-mono text-base"
                 />
               </div>
@@ -125,7 +125,7 @@ export function HouseholdFormCard({ title, description }: Props) {
                 disabled={submitting || !code.trim()}
                 className="h-11 text-base"
               >
-                {submitting ? "Joining..." : "Join household"}
+                {submitting ? "Joining..." : "Join group"}
               </Button>
             </form>
           )}

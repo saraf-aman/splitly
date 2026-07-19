@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Lock, MoreVertical, Pencil, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges, updateItemSelection, confirmSelections } from "@/lib/bills";
-import { useMembers } from "@/lib/household";
+import { useMembers } from "@/lib/group";
 import type { SharedChargeType } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +19,7 @@ const CHARGE_LABELS: Record<SharedChargeType, string> = {
 };
 
 export default function SelectItemsPage() {
-  const { householdId, billId } = useParams<{ householdId: string; billId: string }>();
+  const { groupId, billId } = useParams<{ groupId: string; billId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -71,7 +71,7 @@ export default function SelectItemsPage() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
         <p className="text-body text-muted-foreground">Bill not found.</p>
-        <Button variant="outline" onClick={() => router.push(`/households/${householdId}`)}>
+        <Button variant="outline" onClick={() => router.push(`/groups/${groupId}`)}>
           Go home
         </Button>
       </div>
@@ -85,7 +85,7 @@ export default function SelectItemsPage() {
         <p className="text-body text-muted-foreground">
           The uploader is still reviewing the items. Check back soon.
         </p>
-        <Button variant="outline" onClick={() => router.push(`/households/${householdId}`)}>
+        <Button variant="outline" onClick={() => router.push(`/groups/${groupId}`)}>
           Go home
         </Button>
       </div>
@@ -117,7 +117,7 @@ export default function SelectItemsPage() {
           <p className="text-caption text-muted-foreground mt-0.5">
             {overrideMember
               ? `Check off what ${overrideName} had. Tap ⋮ to adjust their share count.`
-              : "Check off what you had. Tap ⋮ to split an item with someone outside the household."}
+              : "Check off what you had. Tap ⋮ to split an item with someone outside the group."}
           </p>
         </div>
 
@@ -204,7 +204,7 @@ export default function SelectItemsPage() {
         {overrideMember ? (
           <Button
             className="w-full bg-amber-700 text-white hover:bg-amber-800"
-            onClick={() => router.push(`/households/${householdId}/bills/${billId}/grid`)}
+            onClick={() => router.push(`/groups/${groupId}/bills/${billId}/grid`)}
           >
             Save
           </Button>
@@ -223,7 +223,7 @@ export default function SelectItemsPage() {
                 console.log("[confirm] uid:", uid, "billId:", billId, "items:", items.length);
                 try {
                   await confirmSelections(billId, uid, items);
-                  router.push(`/households/${householdId}/bills/${billId}/grid`);
+                  router.push(`/groups/${groupId}/bills/${billId}/grid`);
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : String(e);
                   console.error("[confirm] failed:", msg);
@@ -261,7 +261,7 @@ export default function SelectItemsPage() {
             <p className="mb-6 text-caption text-muted-foreground">
               {overrideMember
                 ? `Is ${overrideName} covering someone outside the household? Increase this — e.g. set to 2 if they're paying for themselves and a friend.`
-                : "Covering someone outside the household? Increase this to pay for extra portions — e.g. set to 2 if you're paying for yourself and a friend."}
+                : "Covering someone outside the group? Increase this to pay for extra portions — e.g. set to 2 if you're paying for yourself and a friend."}
             </p>
             <div className="flex items-center justify-center gap-8">
               <button

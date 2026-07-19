@@ -9,7 +9,7 @@ import { auth } from "@/lib/firebase";
 import { NavDrawer } from "@/components/NavDrawer";
 
 const SHELLLESS_PATHS = ["/login", "/onboarding"];
-const PICKER_PATH = "/households";
+const PICKER_PATH = "/groups";
 
 // Nav height matches Meridian: 62px
 const NAV_H = 62;
@@ -21,12 +21,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const hhMatch = pathname.match(/^\/households\/([^/]+)/);
+  const hhMatch = pathname.match(/^\/groups\/([^/]+)/);
   const hhId = hhMatch?.[1] ?? "";
 
   const isShellLess = SHELLLESS_PATHS.includes(pathname);
   const isPicker = pathname === PICKER_PATH;
-  const isHouseholdHome = !!hhId && pathname === `/households/${hhId}`;
+  const isHouseholdHome = !!hhId && pathname === `/groups/${hhId}`;
   const isInnerScreen = !!hhId && !isHouseholdHome;
 
   async function handleSignOut() {
@@ -92,8 +92,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Floating home button — outside the header, inner screens only */}
       {isInnerScreen && (
         <Link
-          href={`/households/${hhId}`}
-          aria-label="Go to household home"
+          href={`/groups/${hhId}`}
+          aria-label="Go to group home"
           className="fixed inline-flex items-center justify-center"
           style={{
             top: NAV_H + 10,
