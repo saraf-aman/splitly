@@ -5,6 +5,10 @@ export type Role = "admin" | "guest";
 // users/{userId} — reverse index from auth uid to the user's groups, for post-login routing
 export interface UserDoc {
   householdIds: string[]; // Firestore field name — do not rename
+  splitwise?: {
+    accessToken: string;
+    splitwiseUserId: number;
+  };
 }
 
 // households/{groupId}
