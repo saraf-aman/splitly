@@ -28,7 +28,8 @@ export interface Member {
   role: Role;
   fcmTokens: string[];
   addedAt: Timestamp;
-  splitwiseUserId?: number; // set by self-connect (via OAuth callback) or by admin; persists across disconnect
+  splitwiseUserId?: number; // set by self-connect (via OAuth callback); persists across disconnect; admin cannot overwrite
+  splitwiseEmail?: string;  // admin-set alternate Splitwise email, only used when splitwiseUserId is absent
 }
 
 export type BillStatus = "pending_review" | "open" | "settled";

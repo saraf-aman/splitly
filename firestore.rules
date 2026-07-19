@@ -69,11 +69,15 @@ service cloud.firestore {
           (isHouseholdMember(householdId) &&
            memberId == request.auth.uid &&
            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmTokens', 'email'])) ||
-          // Admin can set splitwiseUserId for a member who doesn't have one yet.
-          // Cannot overwrite an existing value — self-connect (via admin SDK in callback) always wins.
+          // Admin can set splitwiseUserId only if the field doesn't already exist.
+          // Self-connect (admin SDK in callback) always overwrites — this only blocks client writes.
           (isHouseholdAdmin(householdId) &&
            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['splitwiseUserId']) &&
            !('splitwiseUserId' in resource.data)) ||
+          // Admin can set/update splitwiseEmail at any time (used for unlinked members with a
+          // different Splitwise email; ignored at push time if splitwiseUserId is already set).
+          (isHouseholdAdmin(householdId) &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['splitwiseEmail'])) ||
           (isHouseholdAdmin(householdId) &&
            memberId != get(/databases/$(database)/documents/households/$(householdId)).data.createdBy &&
            (

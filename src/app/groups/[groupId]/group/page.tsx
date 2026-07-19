@@ -2,12 +2,13 @@
 
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { Trash2, CheckCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   deleteGroup,
   removeMember,
   updateMemberRole,
-  setMemberSplitwiseId,
+  setMemberSplitwiseEmail,
   useGroup,
   useMembers,
 } from "@/lib/group";
@@ -24,20 +25,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle, Loader2 } from "lucide-react";
+
+// ─── SW status chip ────────────────────────────────────────────────────────────
+
+function SwStatusChip({ linked }: { linked: boolean }) {
+  if (linked) {
+    return (
+      <span
+        className="flex items-center gap-1 text-[10px] font-light"
+        style={{ color: "#2E6E6E" }}
+      >
+        <CheckCircle size={9} strokeWidth={2.5} />
+        Splitwise
+      </span>
+    );
+  }
+  return <span className="text-xs text-muted-foreground">—</span>;
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function GroupManagePage() {
   const { groupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
   const group = useGroup(groupId);
   const members = useMembers(groupId);
+
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
-  // Splitwise ID inputs: memberId → pending text value
-  const [swIdInputs, setSwIdInputs] = useState<Record<string, string>>({});
-  const [swIdSaving, setSwIdSaving] = useState<string | null>(null);
-  const [swIdError, setSwIdError] = useState<Record<string, string>>({});
   const [deleting, setDeleting] = useState(false);
+
+  // splitwiseEmail inputs: memberId → current text in the input
+  const [swEmailInputs, setSwEmailInputs] = useState<Record<string, string>>({});
+  const [swEmailSaving, setSwEmailSaving] = useState<string | null>(null);
+  const [swEmailError, setSwEmailError] = useState<Record<string, string>>({});
+  const [swEmailSaved, setSwEmailSaved] = useState<Record<string, boolean>>({});
 
   if (!group) {
     return (
@@ -85,57 +107,77 @@ export default function GroupManagePage() {
     }
   }
 
-  async function handleSaveSwId(memberId: string) {
-    const raw = swIdInputs[memberId]?.trim() ?? "";
-    const parsed = parseInt(raw, 10);
-    if (!raw || isNaN(parsed) || parsed <= 0) {
-      setSwIdError((e) => ({ ...e, [memberId]: "Enter a valid Splitwise user ID (a positive number)." }));
+  async function handleSaveSwEmail(memberId: string) {
+    const email = (swEmailInputs[memberId] ?? "").trim();
+    if (!email || !email.includes("@")) {
+      setSwEmailError((e) => ({ ...e, [memberId]: "Enter a valid email address." }));
       return;
     }
-    setSwIdSaving(memberId);
-    setSwIdError((e) => ({ ...e, [memberId]: "" }));
+    setSwEmailSaving(memberId);
+    setSwEmailError((e) => ({ ...e, [memberId]: "" }));
     try {
-      await setMemberSplitwiseId(groupId, memberId, parsed);
-      setSwIdInputs((v) => ({ ...v, [memberId]: "" }));
+      await setMemberSplitwiseEmail(groupId, memberId, email);
+      setSwEmailSaved((s) => ({ ...s, [memberId]: true }));
+      setTimeout(() => setSwEmailSaved((s) => ({ ...s, [memberId]: false })), 2000);
     } catch {
-      setSwIdError((e) => ({ ...e, [memberId]: "Could not save. Please try again." }));
+      setSwEmailError((e) => ({ ...e, [memberId]: "Could not save. Please try again." }));
     } finally {
-      setSwIdSaving(null);
+      setSwEmailSaving(null);
     }
   }
 
-  // Members that still need a Splitwise ID set
+  // Unlinked = no splitwiseUserId. Email section only appears if group has SW configured.
   const unlinkedMembers = members.filter((m) => !m.splitwiseUserId);
+  const showSwEmailSection = !!group.splitwiseGroupId && unlinkedMembers.length > 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 bg-background px-6 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-heading text-foreground">Manage group</h1>
-      </div>
+    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 bg-background px-4 py-6">
+      <h1 className="text-heading text-foreground">Manage group</h1>
 
-      <ul className="flex flex-col gap-2">
-        {members.map((member) => {
-          const isSelf = member.id === user?.uid;
-          const isTargetCreator = member.id === group.createdBy;
-          const canEdit = !isTargetCreator && (isCreator || member.role === "guest");
-          const disabled = busyId === member.id;
+      {/* ── Members table ── */}
+      <div className="flex flex-col gap-1">
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Members
+        </p>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          {members.map((member, idx) => {
+            const isSelf = member.id === user?.uid;
+            const isTargetCreator = member.id === group.createdBy;
+            const canChangeRole = !isTargetCreator && (isCreator || member.role === "guest");
+            const canRemove = !isSelf && !isTargetCreator && (isCreator || member.role === "guest");
+            const busy = busyId === member.id;
 
-          return (
-            <Card key={member.id} size="sm">
-              <CardContent className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-foreground">
-                  {member.displayName || "Unnamed"}
-                  {isSelf && <span className="text-muted-foreground"> (you)</span>}
-                </span>
+            return (
+              // Grid: [name+email grows] [Splitwise col] [role col] [action col]
+              // Using grid (not flex) so every row shares the exact same column widths.
+              <div
+                key={member.id}
+                className={`grid items-center gap-x-3 px-4 py-3 ${idx !== members.length - 1 ? "border-b border-border" : ""}`}
+                style={{ gridTemplateColumns: "1fr 72px 80px 28px" }}
+              >
+                {/* Col 1 — name + email */}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {member.displayName || "Unnamed"}
+                    {isSelf && <span className="font-normal text-muted-foreground"> (you)</span>}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                </div>
 
-                {canEdit ? (
-                  <div className="flex items-center gap-2">
+                {/* Col 2 — Splitwise status */}
+                <div className="flex items-center">
+                  <SwStatusChip linked={!!member.splitwiseUserId} />
+                </div>
+
+                {/* Col 3 — role select or badge, full width of cell */}
+                <div className="flex items-center">
+                  {canChangeRole ? (
                     <Select
                       value={member.role}
-                      disabled={disabled}
+                      disabled={busy}
                       onValueChange={(value) => handleRoleChange(member.id, value as Role)}
                     >
-                      <SelectTrigger size="sm">
+                      <SelectTrigger size="sm" className="h-7 w-full text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -143,97 +185,107 @@ export default function GroupManagePage() {
                         <SelectItem value="guest">Guest</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={disabled}
-                      onClick={() => handleRemove(member.id)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ) : (
-                  <Badge variant="outline">{isTargetCreator ? "Owner" : "Admin"}</Badge>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </ul>
-
-      {/* Splitwise IDs — admin-only section */}
-      <div className="mt-2 flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-foreground">Splitwise IDs</h2>
-        <p className="text-xs text-muted-foreground">
-          Members with a Splitwise ID can be included in bill expenses. IDs are set automatically when someone connects their Splitwise account, or you can enter them manually for members who haven&apos;t connected yet.
-        </p>
-
-        <div className="flex flex-col gap-2">
-          {members.map((member) => {
-            const isSelf = member.id === user?.uid;
-            const hasId = !!member.splitwiseUserId;
-            const saving = swIdSaving === member.id;
-            const err = swIdError[member.id];
-
-            return (
-              <Card key={member.id} size="sm">
-                <CardContent className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-foreground">
-                      {member.displayName || "Unnamed"}
-                      {isSelf && <span className="text-muted-foreground"> (you)</span>}
-                    </span>
-                    {hasId ? (
-                      <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                        <CheckCircle size={12} />
-                        <span className="font-mono">{member.splitwiseUserId}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No ID</span>
-                    )}
-                  </div>
-
-                  {/* Input for members without an ID — admin can set it once */}
-                  {!hasId && (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Splitwise user ID"
-                        value={swIdInputs[member.id] ?? ""}
-                        onChange={(e) =>
-                          setSwIdInputs((v) => ({ ...v, [member.id]: e.target.value }))
-                        }
-                        disabled={saving}
-                        className="h-8 text-xs font-mono"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 shrink-0 text-xs"
-                        disabled={saving || !swIdInputs[member.id]?.trim()}
-                        onClick={() => handleSaveSwId(member.id)}
-                      >
-                        {saving ? <Loader2 size={12} className="animate-spin" /> : "Save"}
-                      </Button>
-                    </div>
+                  ) : (
+                    <Badge variant="outline" className="w-full justify-center text-xs">
+                      {isTargetCreator ? "Owner" : member.role === "admin" ? "Admin" : "Guest"}
+                    </Badge>
                   )}
-                  {err && <p className="text-xs text-destructive">{err}</p>}
-                </CardContent>
-              </Card>
+                </div>
+
+                {/* Col 4 — remove button (empty cell keeps column for rows without it) */}
+                <div className="flex items-center justify-center">
+                  {canRemove && (
+                    <button
+                      onClick={() => handleRemove(member.id)}
+                      disabled={busy}
+                      className="rounded p-1 text-destructive transition-colors hover:text-red-900 disabled:opacity-40 [&:hover_svg]:stroke-[2.5]"
+                      aria-label={`Remove ${member.displayName}`}
+                    >
+                      {busy ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>
-
-        {unlinkedMembers.length === 0 && (
-          <p className="flex items-center gap-1.5 text-xs text-emerald-600">
-            <CheckCircle size={12} />
-            All members have a Splitwise ID — bill pushes will work for everyone.
-          </p>
-        )}
       </div>
 
+      {/* ── Splitwise email overrides (only for unlinked members when SW group is set) ── */}
+      {showSwEmailSection && (
+        <div className="flex flex-col gap-1">
+          <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Splitwise accounts
+          </p>
+          <p className="mb-2 text-xs text-muted-foreground">
+            These members haven&apos;t connected Splitwise yet. If their Splitwise email differs
+            from their Google email, enter it here so they&apos;re matched correctly when pushing expenses.
+          </p>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            {unlinkedMembers.map((member, idx) => {
+              const saving = swEmailSaving === member.id;
+              const err = swEmailError[member.id];
+              const saved = swEmailSaved[member.id];
+              const existing = member.splitwiseEmail ?? "";
+              const inputVal = swEmailInputs[member.id] ?? existing;
+
+              return (
+                <div
+                  key={member.id}
+                  className={`flex flex-col gap-2 px-4 py-3 ${idx !== unlinkedMembers.length - 1 ? "border-b border-border" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {member.displayName || "Unnamed"}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                    </div>
+                    {existing && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        Override set
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="email"
+                      placeholder={`Splitwise email (default: ${member.email})`}
+                      value={inputVal}
+                      onChange={(e) =>
+                        setSwEmailInputs((v) => ({ ...v, [member.id]: e.target.value }))
+                      }
+                      disabled={saving}
+                      className="h-8 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 shrink-0 text-xs"
+                      disabled={saving || !inputVal.trim() || inputVal.trim() === existing}
+                      onClick={() => handleSaveSwEmail(member.id)}
+                    >
+                      {saving ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : saved ? (
+                        <CheckCircle size={12} className="text-emerald-600" />
+                      ) : (
+                        "Save"
+                      )}
+                    </Button>
+                  </div>
+                  {err && <p className="text-xs text-destructive">{err}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Danger zone ── */}
       {isCreator && (
-        <Card className="mt-6 ring-destructive/30">
+        <Card className="ring-destructive/30">
           <CardContent className="flex flex-col gap-3">
             <div>
               <h2 className="text-sm font-medium text-destructive">Danger zone</h2>

@@ -217,6 +217,14 @@ export async function setMemberSplitwiseId(
   await updateDoc(doc(db, "households", groupId, "members", memberId), { splitwiseUserId });
 }
 
+export async function setMemberSplitwiseEmail(
+  groupId: string,
+  memberId: string,
+  splitwiseEmail: string,
+): Promise<void> {
+  await updateDoc(doc(db, "households", groupId, "members", memberId), { splitwiseEmail });
+}
+
 // Wipes a group entirely: every bill (and its items/sharedCharges), every
 // member, then the group doc itself. Every other open client notices via
 // the same permission-denied path useMembershipStatus/GroupGate already
