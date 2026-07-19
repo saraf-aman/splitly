@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 import { getApps, initializeApp, cert, type App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -22,8 +21,6 @@ function getAdminApp(): App {
   return adminApp;
 }
 
-// Verify a Firebase ID token via the REST API — avoids firebase-admin Auth's
-// jwks-rsa dependency which fails on Vercel due to an ESM/CJS conflict.
 async function verifyFirebaseIdToken(idToken: string): Promise<string | null> {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!apiKey) return null;
@@ -41,12 +38,6 @@ async function verifyFirebaseIdToken(idToken: string): Promise<string | null> {
 }
 
 export async function GET(req: NextRequest) {
-  const clientId = process.env.SPLITWISE_CLIENT_ID;
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "") || undefined;
-  if (!clientId || !appUrl) {
-    return NextResponse.json({ error: "Splitwise not configured" }, { status: 503 });
-  }
-
   const authHeader = req.headers.get("authorization") ?? "";
   const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!idToken) {
@@ -58,23 +49,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
-  const returnPath = new URL(req.url).searchParams.get("returnPath") ?? "/groups";
-
-  const state = randomUUID();
   const db = getFirestore(getAdminApp());
-  await db.collection("splitwiseOAuthStates").doc(state).set({
-    uid,
-    returnPath,
-    createdAt: new Date(),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  const userSnap = await db.collection("users").doc(uid).get();
+  const accessToken = userSnap.data()?.splitwise?.accessToken as string | undefined;
+
+  if (!accessToken) {
+    return NextResponse.json({ error: "Not connected to Splitwise" }, { status: 400 });
+  }
+
+  const swRes = await fetch("https://secure.splitwise.com/api/v3.0/get_groups", {
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  const redirectUri = `${appUrl}/api/splitwise/callback`;
-  const authUrl = new URL("https://secure.splitwise.com/oauth/authorize");
-  authUrl.searchParams.set("client_id", clientId);
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("state", state);
+  if (!swRes.ok) {
+    return NextResponse.json({ error: "Failed to fetch Splitwise groups" }, { status: 502 });
+  }
 
-  return NextResponse.json({ authUrl: authUrl.toString() });
+  const { groups } = (await swRes.json()) as {
+    groups: { id: number; name: string }[];
+  };
+
+  return NextResponse.json({
+    groups: groups.map((g) => ({ id: g.id, name: g.name })),
+  });
 }

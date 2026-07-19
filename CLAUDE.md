@@ -56,6 +56,10 @@ Separately, **bill-owner override** (Phase 6.4) is keyed off bill-upload ownersh
 
 - Never run `git commit` or `git push` (or any other action that alters git history/remote state) unless the user explicitly asks for it in that moment. The user commits and pushes themselves. Staging/inspecting (`git status`, `git diff`, `git add` to prep for the user) is fine.
 
+## Firebase deployment
+
+- **Any change to `firestore.rules` must be deployed immediately** by running `firebase deploy --only firestore:rules`. Editing the file locally does nothing — the old rules stay live until deployed. Run this command (or ask the user to run it) at the end of every session that touches `firestore.rules`.
+
 ## Environment notes
 
 - Never touch/delete `.idea/` or `splitly.iml` in the repo root — they're IntelliJ project files the user actively uses, and removing/editing them crashes IntelliJ. Leave them alone even though they're unrelated to the Next.js app.

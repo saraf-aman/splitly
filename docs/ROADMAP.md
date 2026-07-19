@@ -90,7 +90,7 @@ Full design spec in `docs/PROJECT_PLAN.md §14`. This phase replaces the bottom 
 
 ## Phase 10 — Splitwise integration
 
-- [ ] **10.1** Settings screen to connect a Splitwise API key + select/enter the target group.
+- [x] **10.1** Splitwise OAuth connect/disconnect (per-user, in NavDrawer); per-group Splitwise group link/unlink (owner-only, also in NavDrawer); groups picker page redesigned with collapsed Add/Join form.
 - [ ] **10.2** "Push to Splitwise" button on the final grid screen that sends the computed per-person totals as an expense to the connected group.
 
 ## Phase 11 — Polish & v2 features

@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, CheckCircle, Unlink, Loader2 } from "lucide-react";
+import { ChevronRight, ChevronDown, PlusCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useUserGroups, useGroupList } from "@/lib/group";
-import { useSplitwiseStatus, disconnectSplitwise } from "@/lib/splitwise";
 import { GroupFormCard } from "@/components/GroupFormCard";
-import { Button } from "@/components/ui/button";
 
 export default function GroupsPickerPage() {
   const { loading, groupIds } = useUserGroups();
@@ -16,31 +14,11 @@ export default function GroupsPickerPage() {
   const searchParams = useSearchParams();
   const joinMode = searchParams.get("join") === "1";
   const pickerMode = searchParams.get("picker") === "1";
-
   const { user } = useAuth();
-  const { loading: swLoading, connected } = useSplitwiseStatus(user?.uid);
-  const [swConnecting, setSwConnecting] = useState(false);
-  const [swDisconnecting, setSwDisconnecting] = useState(false);
-  const [swError, setSwError] = useState<string | null>(null);
-
-  // Show connection status based on callback query param, then clear the param so refresh doesn't re-show it
-  const swParam = searchParams.get("sw");
-  const swErrorParam = searchParams.get("sw_error");
-  useEffect(() => {
-    if (!swParam && !swErrorParam) return;
-    void Promise.resolve().then(() => {
-      if (swErrorParam) {
-        setSwError(`Splitwise connection failed (${swErrorParam}). Please try again.`);
-      }
-      // Strip the sw params from the URL without re-navigating
-      const url = new URL(window.location.href);
-      url.searchParams.delete("sw");
-      url.searchParams.delete("sw_error");
-      window.history.replaceState(null, "", url.toString());
-    });
-  }, [swParam, swErrorParam]);
+  const [formOpen, setFormOpen] = useState(joinMode);
 
   useEffect(() => {
+    if (!user) return;
     if (loading) return;
     if (groupIds.length === 0) {
       router.replace("/onboarding");
@@ -49,50 +27,42 @@ export default function GroupsPickerPage() {
     if (groupIds.length === 1 && !joinMode && !pickerMode) {
       router.replace(`/groups/${groupIds[0]}`);
     }
-  }, [loading, groupIds, router, joinMode, pickerMode]);
+  }, [loading, groupIds, router, joinMode, pickerMode, user]);
 
   // Show nothing while redirecting (0 or 1 group when not in join/picker mode)
   if (loading || (groupIds.length < 2 && !joinMode && !pickerMode)) return null;
 
-  async function handleConnect() {
-    if (!user) return;
-    setSwConnecting(true);
-    setSwError(null);
-    try {
-      const idToken = await user.getIdToken();
-      const res = await fetch("/api/splitwise/connect", {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      if (!res.ok) throw new Error("Failed to start connection");
-      const { authUrl } = (await res.json()) as { authUrl: string };
-      window.location.href = authUrl;
-    } catch {
-      setSwError("Could not start Splitwise connection. Please try again.");
-      setSwConnecting(false);
-    }
-  }
-
-  async function handleDisconnect() {
-    if (!user) return;
-    setSwDisconnecting(true);
-    setSwError(null);
-    try {
-      await disconnectSplitwise(user.uid);
-    } catch {
-      setSwError("Could not disconnect. Please try again.");
-    } finally {
-      setSwDisconnecting(false);
-    }
-  }
-
   return (
-    <div className="flex flex-1 flex-col items-center gap-6 bg-background px-6 pt-12 pb-8">
+    <div className="flex flex-1 flex-col items-center gap-4 bg-background px-6 pt-10 pb-8">
       <div className="flex flex-col items-center gap-1 text-center">
         <h1 className="text-heading text-foreground">Your groups</h1>
         <p className="text-body text-muted-foreground">Choose one to open</p>
       </div>
 
-      <div className="flex w-full max-w-xs flex-col gap-3">
+      <div className="flex w-full max-w-xs flex-col gap-2">
+        {/* Add / Join Group — collapsed by default */}
+        <div className="flex flex-col">
+          <button
+            onClick={() => setFormOpen((v) => !v)}
+            className="flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <PlusCircle size={15} className="shrink-0" />
+            <span className="flex-1">Add / Join Group</span>
+            <ChevronDown
+              size={14}
+              className="shrink-0 transition-transform"
+              style={{ transform: formOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+            />
+          </button>
+
+          {formOpen && (
+            <div className="mt-3">
+              <GroupFormCard />
+            </div>
+          )}
+        </div>
+
+        {/* Group list */}
         {groups.map((g) => (
           <button
             key={g.id}
@@ -104,67 +74,6 @@ export default function GroupsPickerPage() {
           </button>
         ))}
       </div>
-
-      <div className="w-full max-w-xs">
-        <GroupFormCard />
-      </div>
-
-      {/* Splitwise connection — global, not per-group */}
-      {!swLoading && (
-        <div className="w-full max-w-xs">
-          <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3.5 shadow-sm">
-            <div className="flex items-center gap-2">
-              {connected ? (
-                <CheckCircle className="size-4 text-emerald-600" />
-              ) : (
-                <span className="size-4" />
-              )}
-              <span className="text-sm font-medium text-foreground">
-                Splitwise
-              </span>
-              {connected && (
-                <span className="text-xs text-emerald-600 font-medium">connected</span>
-              )}
-            </div>
-
-            {connected ? (
-              <button
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                onClick={handleDisconnect}
-                disabled={swDisconnecting}
-              >
-                {swDisconnecting ? (
-                  <Loader2 className="size-3 animate-spin" />
-                ) : (
-                  <Unlink className="size-3" />
-                )}
-                Disconnect
-              </button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={handleConnect}
-                disabled={swConnecting}
-              >
-                {swConnecting ? (
-                  <span className="flex items-center gap-1">
-                    <Loader2 className="size-3 animate-spin" />
-                    Connecting…
-                  </span>
-                ) : (
-                  "Connect"
-                )}
-              </Button>
-            )}
-          </div>
-
-          {swError && (
-            <p className="mt-1.5 text-xs text-destructive px-1">{swError}</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }

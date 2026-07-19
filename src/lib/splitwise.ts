@@ -38,3 +38,21 @@ export function useSplitwiseStatus(uid: string | undefined): SplitwiseStatus {
 export async function disconnectSplitwise(uid: string): Promise<void> {
   await updateDoc(doc(db, "users", uid), { splitwise: deleteField() });
 }
+
+export async function saveGroupSplitwise(
+  groupId: string,
+  swGroupId: number,
+  swGroupName: string,
+): Promise<void> {
+  await updateDoc(doc(db, "households", groupId), {
+    splitwiseGroupId: swGroupId,
+    splitwiseGroupName: swGroupName,
+  });
+}
+
+export async function clearGroupSplitwise(groupId: string): Promise<void> {
+  await updateDoc(doc(db, "households", groupId), {
+    splitwiseGroupId: deleteField(),
+    splitwiseGroupName: deleteField(),
+  });
+}

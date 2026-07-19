@@ -16,6 +16,8 @@ export interface Group {
   name: string;
   createdAt: Timestamp;
   createdBy: string; // userId of the creator — lets Firestore rules bootstrap the first admin member
+  splitwiseGroupId?: number;
+  splitwiseGroupName?: string;
 }
 
 // households/{groupId}/members/{userId}

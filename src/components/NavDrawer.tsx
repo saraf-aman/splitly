@@ -1,12 +1,33 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Home, Settings, ArrowLeftRight, LogOut, X, Copy, Check, Users, DoorOpen } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Home,
+  Settings,
+  ArrowLeftRight,
+  LogOut,
+  X,
+  Copy,
+  Check,
+  Users,
+  DoorOpen,
+  CheckCircle,
+  Unlink,
+  Link,
+  Loader2,
+  ChevronDown,
+} from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useGroup, useMembers, leaveGroup } from "@/lib/group";
+import { useSplitwiseStatus, disconnectSplitwise, saveGroupSplitwise, clearGroupSplitwise } from "@/lib/splitwise";
+
+interface SwGroup {
+  id: number;
+  name: string;
+}
 
 interface Props {
   householdId: string;
@@ -17,21 +38,55 @@ interface Props {
 export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const household = useGroup(householdId);
   const members = useMembers(householdId);
+  const { loading: swLoading, connected: swConnected } = useSplitwiseStatus(user?.uid);
+
   const [showInvite, setShowInvite] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
+  // Splitwise personal connection
+  const [swConnecting, setSwConnecting] = useState(false);
+  const [swDisconnecting, setSwDisconnecting] = useState(false);
+  const [swError, setSwError] = useState<string | null>(null);
+
+  // Splitwise group linking (owner only)
+  const [swGroups, setSwGroups] = useState<SwGroup[]>([]);
+  const [swGroupsLoading, setSwGroupsLoading] = useState(false);
+  const [swGroupsError, setSwGroupsError] = useState<string | null>(null);
+  const [swLinkOpen, setSwLinkOpen] = useState(false);
+  const [swSaving, setSwSaving] = useState(false);
+  const [swClearing, setSwClearing] = useState(false);
+
   const me = members.find((m) => m.id === user?.uid);
   const isAdmin = me?.role === "admin";
   const isCreator = !!user && household?.createdBy === user.uid;
+
+  // Read sw params on return from OAuth, store error in state, clear URL
+  const swParam = searchParams.get("sw");
+  const swErrorParam = searchParams.get("sw_error");
+  useEffect(() => {
+    if (!swParam && !swErrorParam) return;
+    void Promise.resolve().then(() => {
+      if (swErrorParam) {
+        setSwError(`Splitwise connection failed (${swErrorParam}). Please try again.`);
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.delete("sw");
+      url.searchParams.delete("sw_error");
+      window.history.replaceState(null, "", url.toString());
+    });
+  }, [swParam, swErrorParam]);
 
   const close = useCallback(() => {
     setShowInvite(false);
     setCopied(false);
     setShowLeaveConfirm(false);
+    setSwLinkOpen(false);
+    setSwGroups([]);
     onClose();
   }, [onClose]);
 
@@ -73,6 +128,85 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleSwConnect() {
+    if (!user) return;
+    setSwConnecting(true);
+    setSwError(null);
+    try {
+      const idToken = await user.getIdToken();
+      const returnPath = window.location.pathname;
+      const res = await fetch(
+        `/api/splitwise/connect?returnPath=${encodeURIComponent(returnPath)}`,
+        { headers: { Authorization: `Bearer ${idToken}` } },
+      );
+      if (!res.ok) throw new Error("Failed");
+      const { authUrl } = (await res.json()) as { authUrl: string };
+      window.location.href = authUrl;
+    } catch {
+      setSwError("Could not start Splitwise connection. Please try again.");
+      setSwConnecting(false);
+    }
+  }
+
+  async function handleSwDisconnect() {
+    if (!user) return;
+    setSwDisconnecting(true);
+    setSwError(null);
+    try {
+      await disconnectSplitwise(user.uid);
+    } catch {
+      setSwError("Could not disconnect. Please try again.");
+    } finally {
+      setSwDisconnecting(false);
+    }
+  }
+
+  async function handleOpenLinkPicker() {
+    if (!user) return;
+    setSwLinkOpen(true);
+    setSwGroupsError(null);
+    if (swGroups.length > 0) return; // already loaded
+    setSwGroupsLoading(true);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/splitwise/groups", {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = (await res.json()) as { groups: SwGroup[] };
+      setSwGroups(data.groups);
+    } catch {
+      setSwGroupsError("Could not load groups. Please try again.");
+    } finally {
+      setSwGroupsLoading(false);
+    }
+  }
+
+  async function handleLinkGroup(g: SwGroup) {
+    setSwSaving(true);
+    try {
+      await saveGroupSplitwise(householdId, g.id, g.name);
+      setSwLinkOpen(false);
+    } catch {
+      setSwGroupsError("Could not link group. Please try again.");
+    } finally {
+      setSwSaving(false);
+    }
+  }
+
+  async function handleUnlinkGroup() {
+    setSwClearing(true);
+    try {
+      await clearGroupSplitwise(householdId);
+    } catch {
+      setSwError("Could not unlink group. Please try again.");
+    } finally {
+      setSwClearing(false);
+    }
+  }
+
+  const linkedGroupName = household?.splitwiseGroupName;
+
   return (
     <>
       {/* Backdrop */}
@@ -93,7 +227,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
-        className="fixed inset-y-0 right-0 z-40 flex w-72 flex-col bg-card shadow-xl"
+        className="fixed inset-y-0 right-0 z-40 flex w-72 flex-col overflow-y-auto bg-card shadow-xl"
         style={{
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
           transition: "transform 220ms ease-out",
@@ -101,7 +235,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between border-b border-border px-5"
+          className="flex shrink-0 items-center justify-between border-b border-border px-5"
           style={{ height: 62 }}
         >
           <span className="truncate pr-4 text-sm font-semibold text-foreground">
@@ -137,7 +271,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
             </button>
           )}
 
-          {/* Invite code — available to all members */}
+          {/* Invite code */}
           <button
             onClick={() => setShowInvite((v) => !v)}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
@@ -168,14 +302,135 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
 
         <div className="mx-3 border-t border-border" />
 
+        {/* Splitwise section */}
+        {!swLoading && (
+          <div className="flex flex-col gap-1 px-3 py-3">
+            <p className="mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Splitwise
+            </p>
+
+            {/* Personal connection row */}
+            {swConnected ? (
+              <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+                <CheckCircle size={14} className="shrink-0 text-emerald-600" />
+                <span className="flex-1 text-sm text-foreground">Connected</span>
+                <button
+                  onClick={handleSwDisconnect}
+                  disabled={swDisconnecting}
+                  className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+                >
+                  {swDisconnecting
+                    ? <Loader2 size={12} className="animate-spin" />
+                    : <Unlink size={12} />}
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleSwConnect}
+                disabled={swConnecting}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+              >
+                {swConnecting
+                  ? <Loader2 size={15} className="shrink-0 animate-spin text-muted-foreground" />
+                  : <span className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border border-muted-foreground text-[9px] font-bold text-muted-foreground">S</span>}
+                {swConnecting ? "Connecting…" : "Connect Splitwise"}
+              </button>
+            )}
+
+            {/* Per-group Splitwise group — only when personally connected */}
+            {swConnected && (
+              <>
+                {linkedGroupName ? (
+                  /* Group is linked — show name to everyone, owner gets unlink */
+                  <div className="mx-1 mt-0.5 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
+                    <CheckCircle size={12} className="shrink-0 text-emerald-600" />
+                    <span className="flex-1 truncate text-xs font-medium text-foreground">
+                      {linkedGroupName}
+                    </span>
+                    {isCreator && (
+                      <button
+                        onClick={handleUnlinkGroup}
+                        disabled={swClearing}
+                        className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+                      >
+                        {swClearing
+                          ? <Loader2 size={11} className="animate-spin" />
+                          : <Unlink size={11} />}
+                        Unlink
+                      </button>
+                    )}
+                  </div>
+                ) : isCreator ? (
+                  /* No group linked yet — owner can link */
+                  <div className="mx-1 mt-0.5 flex flex-col gap-1">
+                    <button
+                      onClick={swLinkOpen ? () => { setSwLinkOpen(false); setSwGroups([]); } : handleOpenLinkPicker}
+                      disabled={swGroupsLoading}
+                      className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      {swGroupsLoading
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <Link size={12} />}
+                      <span className="flex-1 text-left">
+                        {swGroupsLoading ? "Loading groups…" : "Link Splitwise group"}
+                      </span>
+                      {!swGroupsLoading && (
+                        <ChevronDown
+                          size={12}
+                          className="transition-transform"
+                          style={{ transform: swLinkOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                        />
+                      )}
+                    </button>
+
+                    {swGroupsError && (
+                      <p className="px-3 text-xs text-destructive">{swGroupsError}</p>
+                    )}
+
+                    {swLinkOpen && swGroups.length > 0 && (
+                      <div className="rounded-lg border border-border bg-background shadow-sm">
+                        {swGroups.map((g) => (
+                          <button
+                            key={g.id}
+                            onClick={() => handleLinkGroup(g)}
+                            disabled={swSaving}
+                            className="flex w-full items-center px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-secondary first:rounded-t-lg last:rounded-b-lg"
+                          >
+                            {swSaving
+                              ? <Loader2 size={11} className="mr-2 shrink-0 animate-spin" />
+                              : null}
+                            {g.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Non-owner, no group linked */
+                  <p className="px-3 text-xs text-muted-foreground">
+                    No Splitwise group linked yet.
+                  </p>
+                )}
+              </>
+            )}
+
+            {swError && (
+              <p className="mt-0.5 px-3 text-xs text-destructive">{swError}</p>
+            )}
+          </div>
+        )}
+
+        <div className="mx-3 border-t border-border" />
+
         {/* Secondary nav */}
         <nav className="flex flex-col gap-0.5 p-3">
           <button
-            onClick={() => nav("/groups?join=1")}
+            onClick={() => nav("/groups?picker=1")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
             <ArrowLeftRight size={16} className="shrink-0 text-muted-foreground" />
-            Switch Household
+            Switch Group
           </button>
 
           {!isCreator && !showLeaveConfirm && (

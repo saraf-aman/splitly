@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -118,11 +118,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {hhId && (
-        <NavDrawer
-          householdId={hhId}
-          isOpen={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        />
+        <Suspense>
+          <NavDrawer
+            householdId={hhId}
+            isOpen={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

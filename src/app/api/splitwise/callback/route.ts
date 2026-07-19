@@ -63,11 +63,16 @@ async function handleCallback(req: NextRequest) {
     return redirectTo("/groups?picker=1&sw_error=invalid_state");
   }
 
-  const { uid, expiresAt } = stateDoc.data() as { uid: string; expiresAt: { toDate(): Date } };
+  const { uid, returnPath, expiresAt } = stateDoc.data() as {
+    uid: string;
+    returnPath?: string;
+    expiresAt: { toDate(): Date };
+  };
+  const dest = returnPath ?? "/groups";
   if (expiresAt.toDate() < new Date()) {
     await stateDoc.ref.delete();
     console.error("[splitwise/callback] State expired for uid:", uid);
-    return redirectTo("/groups?picker=1&sw_error=expired");
+    return redirectTo(`${dest}?sw_error=expired`);
   }
 
   // Exchange code for access token
@@ -89,7 +94,7 @@ async function handleCallback(req: NextRequest) {
     const body = await tokenRes.text();
     console.error("[splitwise/callback] Token exchange failed:", tokenRes.status, body);
     await stateDoc.ref.delete();
-    return redirectTo("/groups?picker=1&sw_error=token_exchange");
+    return redirectTo(`${dest}?sw_error=token_exchange`);
   }
 
   const { access_token } = (await tokenRes.json()) as { access_token: string };
@@ -103,7 +108,7 @@ async function handleCallback(req: NextRequest) {
     const body = await userRes.text();
     console.error("[splitwise/callback] User fetch failed:", userRes.status, body);
     await stateDoc.ref.delete();
-    return redirectTo("/groups?picker=1&sw_error=user_fetch");
+    return redirectTo(`${dest}?sw_error=user_fetch`);
   }
 
   const { user } = (await userRes.json()) as { user: { id: number } };
@@ -117,5 +122,5 @@ async function handleCallback(req: NextRequest) {
   // Clean up the one-time state doc
   await stateDoc.ref.delete();
 
-  return redirectTo("/groups?picker=1&sw=connected");
+  return redirectTo(`${dest}?sw=connected`);
 }

@@ -41,7 +41,12 @@ service cloud.firestore {
       // as createdBy; the matching member-doc rule below is what actually lets that
       // creator grant themselves the admin role, and only for a household they created.
       allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isHouseholdAdmin(householdId);
+      allow update: if isHouseholdAdmin(householdId) &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['splitwiseGroupId', 'splitwiseGroupName']) ||
+          isHouseholdCreator(householdId)
+        );
       // Deleting the whole household (wiping all members/bills/data) is
       // creator-only — the most destructive action in the app.
       allow delete: if isHouseholdCreator(householdId);
