@@ -5,14 +5,26 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** Phase 10.2 — "Push to Splitwise" button on the final grid screen. Sends per-person totals as a Splitwise expense; payer = bill uploader. Needs: new API route `POST /api/splitwise/push`, `splitwiseExpenseId` field on bill doc, button on grid page (uploader-only, greyed until settled, shows "Pushed ✓" after). Members resolved via: `users/{uid}.splitwise.splitwiseUserId` (self-connected, active token) OR `members/{uid}.splitwiseUserId` (persisted ID — set by self-connect mirror or admin). Block push if any non-$0 member has neither. Payer's access token required from `users/{uid}.splitwise.accessToken`. Currency: USD.
-- **Phase 10.1 — Splitwise connect + group linking (done):**
+- **Next step:** Phase 10.2 — "Push to Splitwise" button on the final grid screen.
+  - Needs: `POST /api/splitwise/push` API route, `splitwiseExpenseId` field on bill doc, button on grid page (uploader-only, greyed until settled, shows "Pushed ✓" after push).
+  - **Member resolution order at push time:** (1) `members/{uid}.splitwiseUserId` (persisted from self-connect or admin-set); (2) email match against Splitwise group member list — uses `members/{uid}.splitwiseEmail` override if set, otherwise `members/{uid}.email`. Linked members (`splitwiseUserId` set) are never touched by email logic.
+  - **Pre-push summary screen:** show which members resolved successfully and which didn't. Bill owner can proceed (unresolved members omitted from Splitwise expense) or cancel to fix.
+  - **Payer:** bill uploader; their `users/{uid}.splitwise.accessToken` is required. Currency: USD.
+  - **Block:** once pushed, button shows "Pushed ✓" and is disabled. Push only allowed after bill is settled.
+  - **Wrong email handling:** if admin entered a wrong `splitwiseEmail`, that member shows as unresolved in the pre-push summary — owner proceeds without them or cancels to fix.
+- **Phase 10.1 — Splitwise connect + group linking + manage page (done):**
   - **Vercel callback fix:** `NEXT_PUBLIC_APP_URL` had a trailing slash → double-slash in redirect_uri → Splitwise `invalid_grant`. Fixed with `.replace(/\/$/, "")` in both connect and callback routes.
-  - **Connect/disconnect:** per-user OAuth in NavDrawer. `useSplitwiseStatus(uid)` realtime listener. Callback `returnPath` stored in state doc so user returns to their group page (not the picker) after OAuth.
-  - **Group linking (owner only):** NavDrawer Splitwise section shows "Link Splitwise group" picker for the creator when connected. Fetches their groups via `/api/splitwise/groups`. Saves `splitwiseGroupId + splitwiseGroupName` to the household doc. All connected members see the linked group name; owner gets "Unlink" button. Firestore rule restricts these fields to creator.
-  - **Groups picker redesign:** Splitwise section removed; "Add / Join Group" is now a collapsed button at the top; group list below.
-  - **Data model:** `households/{groupId}.splitwiseGroupId?: number`, `.splitwiseGroupName?: string`; `users/{uid}.splitwise = { accessToken, splitwiseUserId }`
-  - **API routes:** `/api/splitwise/connect` (GET, stores returnPath in state), `/api/splitwise/callback` (GET, redirects to returnPath), `/api/splitwise/groups` (GET, fetches user's Splitwise groups)
+  - **Connect/disconnect:** per-user OAuth in NavDrawer. `useSplitwiseStatus(uid)` realtime listener. Callback `returnPath` stored in state doc so user returns to their group page after OAuth.
+  - **`splitwiseUserId` mirroring:** callback batch-writes `splitwiseUserId` to all of the user's `households/{id}/members/{uid}` docs after a successful connect, so the ID persists even if they later disconnect.
+  - **Group linking (owner only):** NavDrawer shows "Link Splitwise group" picker for the creator when connected. Fetches their groups via `/api/splitwise/groups`. Saves `splitwiseGroupId + splitwiseGroupName` to the household doc (Firestore rule restricts these fields to creator). All connected members see the linked group name; owner gets "Unlink" button.
+  - **Connect banner:** group home page shows a teal banner every session for members who haven't connected Splitwise when the group has a Splitwise group configured. "Connect now" kicks off OAuth directly from the banner, returning to the same page.
+  - **`splitwiseEmail` field:** `members/{uid}.splitwiseEmail?: string` — admin-set alternate Splitwise email for unlinked members whose Splitwise account email differs from their Google email. Ignored at push time for members who have `splitwiseUserId`. Firestore rule: admin can freely set/update `splitwiseEmail` on any member doc.
+  - **Manage page rewrite:** compact CSS-grid table (not cards) — `gridTemplateColumns: "1fr 72px 80px 28px"` so Splitwise status / role / trash columns align perfectly across all rows. "Splitwise accounts" section appears only when group has a Splitwise group AND there are unlinked members — admin enters alternate Splitwise email there. Linked members (have `splitwiseUserId`) never appear in that section.
+  - **Groups picker redesign:** Splitwise section removed; "Add / Join Group" is a collapsed button at the top; group list below.
+  - **Data model:** `households/{groupId}.splitwiseGroupId?: number`, `.splitwiseGroupName?: string`; `users/{uid}.splitwise = { accessToken, splitwiseUserId }`; `members/{uid}.splitwiseUserId?: number`; `members/{uid}.splitwiseEmail?: string`
+  - **API routes:** `/api/splitwise/connect` (GET, stores returnPath in state), `/api/splitwise/callback` (GET, mirrors splitwiseUserId to all household member docs, redirects to returnPath), `/api/splitwise/groups` (GET, fetches user's Splitwise groups)
+  - **AppShell:** NavDrawer wrapped in `<Suspense>` (required for `useSearchParams` inside NavDrawer)
+  - **Firestore rules deployed** after every change this session.
 - **Rename household → group (done):** All routes now `/groups/[groupId]/...`, all TypeScript code uses `group`/`Group`/`groupId`, all UI copy says "group". Firestore collection names (`households`, `householdId`, `householdIds`) are UNCHANGED. Legacy shims (`/bills/`, `/household/`) updated to use `useUserGroup`. `@/lib/household` no longer imported anywhere — fully replaced by `@/lib/group`.
 - **Shared charges split fix (done):** Tax/tip/service now split only among members with ≥1 item selected (`getActiveParticipants` in `splitCalc.ts`). Falls back to all members if nobody has items. Both `calculateSplit` and the grid page's per-row charge display use this. 20 tests pass.
 - **Firestore composite index:** `bills` on `(householdId ASC, createdAt DESC)` — created in `firestore.indexes.json` and deployed. Required for `useHouseholdBills` query to work server-side. Also add `"indexes": "firestore.indexes.json"` to `firebase.json` (already done this session).
@@ -36,6 +48,55 @@ _Entry template:_
 ## [Step] — [title]  (YYYY-MM-DD)
 - Built / Files / Deviations / Next session should know
 ```
+
+---
+
+## Phase 10.1 — Splitwise integration: connect, group link, manage page  (2026-07-19)
+
+### Vercel callback `invalid_grant` fix
+- `NEXT_PUBLIC_APP_URL` env var had a trailing slash → redirect_uri sent to Splitwise had a double-slash → Splitwise rejected the token exchange with `invalid_grant`.
+- Fixed with `.replace(/\/$/, "")` in both `src/app/api/splitwise/connect/route.ts` and `src/app/api/splitwise/callback/route.ts`.
+
+### NavDrawer — Splitwise per-user connect/disconnect + owner group link
+- Full rewrite of `src/components/NavDrawer.tsx`. Key Splitwise section:
+  - All members: "Connect Splitwise" button if not connected; "Disconnect" if connected.
+  - Owner (creator): when connected, "Link Splitwise group" button → fetches their groups inline via `/api/splitwise/groups` → picks one → `saveGroupSplitwise()`. When linked, shows group name chip + "Unlink" button.
+  - Non-owner members: see the linked group name as a read-only green chip when group is linked.
+  - `handleSwConnect()` passes `returnPath = window.location.pathname` to the connect route so OAuth returns to the same page.
+  - Handles `?sw=connected` and `?sw_error=...` URL params from callback; clears them via `window.history.replaceState`.
+- `src/components/AppShell.tsx`: wrapped `<NavDrawer>` in `<Suspense>` (required by Next.js because NavDrawer uses `useSearchParams`).
+
+### OAuth callback — `splitwiseUserId` mirroring
+- `src/app/api/splitwise/callback/route.ts`: after writing `users/{uid}.splitwise`, batch-writes `splitwiseUserId` to every `households/{hid}/members/{uid}` doc the user belongs to. Persists the ID even after they later disconnect. Added full try/catch with `console.error` at each failure point (was producing silent 500s on Vercel without logs).
+
+### `/api/splitwise/groups` route (new)
+- `src/app/api/splitwise/groups/route.ts`: GET — verifies Firebase ID token, reads `users/{uid}.splitwise.accessToken` from Firestore, calls Splitwise `/get_groups`, returns `[{ id, name }]`.
+
+### Splitwise connect banner on group home
+- `src/app/groups/[groupId]/page.tsx`: teal banner appears every session when group has `splitwiseGroupId` AND current user is not connected. "Connect now" kicks off OAuth directly, returning to the same page. No dismiss button — stays visible until connected.
+
+### Groups picker redesign
+- `src/app/groups/page.tsx`: full rewrite. Splitwise section removed entirely. "Add / Join Group" is now a small collapsed button at the top (expands to the form on click). Group list below.
+
+### Data model additions
+- `src/types/firestore.ts`: added `splitwiseGroupId?: number`, `splitwiseGroupName?: string` to `Group`; added `splitwiseUserId?: number` (set by self-connect, persists across disconnect, admin cannot overwrite) and `splitwiseEmail?: string` (admin-set alternate Splitwise email, only used when `splitwiseUserId` is absent) to `Member`.
+- `src/lib/splitwise.ts`: added `saveGroupSplitwise()`, `clearGroupSplitwise()`, `disconnectSplitwise()`.
+- `src/lib/group.ts`: added `setMemberSplitwiseEmail()`.
+
+### Manage page rewrite
+- `src/app/groups/[groupId]/group/page.tsx`: full rewrite.
+  - **Members section:** CSS grid (`gridTemplateColumns: "1fr 72px 80px 28px"`) — columns are Splitwise status | role | trash. All rows share identical column widths so nothing shifts.
+  - **Splitwise status chip:** small light green "✓ Splitwise" text (no pill background) for linked members; "—" for unlinked.
+  - **Role column:** `Select` for editable rows, `Badge w-full` for read-only rows — both fill the same 80px cell so they align.
+  - **Trash icon:** always `text-destructive` (red); `hover:text-red-900` + `[&:hover_svg]:stroke-[2.5]` for darker, bolder hover.
+  - **"Splitwise accounts" section:** only shown when group has `splitwiseGroupId` AND there are unlinked members. Admin enters alternate Splitwise email for any unlinked member. Pre-fills from existing `splitwiseEmail` if already set. Linked members (have `splitwiseUserId`) never appear here.
+  - Removed all numeric Splitwise ID input UI — email-based resolution is the approach going forward.
+
+### Firestore rules
+- `splitwiseGroupId`/`splitwiseGroupName` on household doc: restricted to creator only (already deployed in prior session).
+- `splitwiseUserId` on member doc: admin can set only when field doesn't already exist (self-connect via admin SDK always wins).
+- `splitwiseEmail` on member doc: admin can freely set/update at any time (new this session).
+- Deployed: `firebase deploy --only firestore:rules`.
 
 ---
 
