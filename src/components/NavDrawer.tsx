@@ -61,9 +61,43 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   const [swSaving, setSwSaving] = useState(false);
   const [swClearing, setSwClearing] = useState(false);
 
+  // Whether the current user is actually a member of the linked Splitwise group.
+  // "idle" = not yet checked; "checking" = in flight; "member"/"not-member" = result.
+  type SwMembership = "idle" | "checking" | "member" | "not-member";
+  const [swMembership, setSwMembership] = useState<SwMembership>("idle");
+
   const me = members.find((m) => m.id === user?.uid);
   const isAdmin = me?.role === "admin";
   const isCreator = !!user && household?.createdBy === user.uid;
+  const linkedGroupId = household?.splitwiseGroupId;
+
+  // Reset membership check whenever the user's connection or the linked group changes.
+  useEffect(() => {
+    void Promise.resolve().then(() => setSwMembership("idle"));
+  }, [swConnected, linkedGroupId]);
+
+  // Run the membership check once per (connected + linked group) session, on drawer open.
+  useEffect(() => {
+    if (!isOpen || !swConnected || !linkedGroupId || !user) return;
+    if (swMembership !== "idle") return;
+    void Promise.resolve().then(() => setSwMembership("checking"));
+    void (async () => {
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch("/api/splitwise/groups", {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!res.ok) throw new Error("Failed");
+        const data = (await res.json()) as { groups: SwGroup[] };
+        const isMember = data.groups.some((g) => g.id === linkedGroupId);
+        setSwMembership(isMember ? "member" : "not-member");
+        // Cache the groups list so the owner's link picker doesn't need a second fetch.
+        if (data.groups.length > 0) setSwGroups(data.groups);
+      } catch {
+        setSwMembership("idle"); // silent fail — retry next open
+      }
+    })();
+  }, [isOpen, swConnected, linkedGroupId, user, swMembership]);
 
   // Read sw params on return from OAuth, store error in state, clear URL
   const swParam = searchParams.get("sw");
@@ -342,25 +376,42 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
             {swConnected && (
               <>
                 {linkedGroupName ? (
-                  /* Group is linked — show name to everyone, owner gets unlink */
-                  <div className="mx-1 mt-0.5 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
-                    <CheckCircle size={12} className="shrink-0 text-emerald-600" />
-                    <span className="flex-1 truncate text-xs font-medium text-foreground">
-                      {linkedGroupName}
-                    </span>
-                    {isCreator && (
-                      <button
-                        onClick={handleUnlinkGroup}
-                        disabled={swClearing}
-                        className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
-                      >
-                        {swClearing
-                          ? <Loader2 size={11} className="animate-spin" />
-                          : <Unlink size={11} />}
-                        Unlink
-                      </button>
-                    )}
-                  </div>
+                  swMembership === "not-member" ? (
+                    /* User is connected but not in this Splitwise group */
+                    <div
+                      className="mx-1 mt-0.5 flex flex-col gap-1 rounded-lg border px-3 py-2.5"
+                      style={{ background: "rgba(217,119,6,0.06)", borderColor: "rgba(217,119,6,0.25)" }}
+                    >
+                      <p className="text-xs font-semibold" style={{ color: "#B45309" }}>
+                        Not in this group
+                      </p>
+                      <p className="text-xs" style={{ color: "#92400E" }}>
+                        You&apos;re not a member of &ldquo;{linkedGroupName}&rdquo; on Splitwise. Ask the group owner to add you there.
+                      </p>
+                    </div>
+                  ) : (
+                    /* Group is linked — show name to everyone, owner gets unlink */
+                    <div className="mx-1 mt-0.5 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
+                      {swMembership === "checking"
+                        ? <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" />
+                        : <CheckCircle size={12} className="shrink-0 text-emerald-600" />}
+                      <span className="flex-1 truncate text-xs font-medium text-foreground">
+                        {linkedGroupName}
+                      </span>
+                      {isCreator && (
+                        <button
+                          onClick={handleUnlinkGroup}
+                          disabled={swClearing}
+                          className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+                        >
+                          {swClearing
+                            ? <Loader2 size={11} className="animate-spin" />
+                            : <Unlink size={11} />}
+                          Unlink
+                        </button>
+                      )}
+                    </div>
+                  )
                 ) : isCreator ? (
                   /* No group linked yet — owner can link */
                   <div className="mx-1 mt-0.5 flex flex-col gap-1">
