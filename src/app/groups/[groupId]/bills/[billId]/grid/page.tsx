@@ -412,7 +412,7 @@ export default function GridPage() {
 
         {/* Push to Splitwise — flex spacer mirrors the sticky item column width */}
         {isUploader && (
-          <div className="flex pt-2 pb-4">
+          <div className="flex pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
             <div className="w-[130px] shrink-0" />
             <div className="px-2">
               <button
