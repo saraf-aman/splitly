@@ -298,6 +298,12 @@ export default function GroupHomePage() {
       )}
 
       <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-6 pb-28">
+        {group && (
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1A1A1F", lineHeight: 1.2 }}>
+            {group.name}
+          </h1>
+        )}
+
         {loading && (
           <p className="text-center text-sm text-muted-foreground">Loading…</p>
         )}
