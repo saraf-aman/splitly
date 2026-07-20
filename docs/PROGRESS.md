@@ -5,7 +5,8 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** Phase 11 — UI refinements (steps TBD by user, tracked in `docs/ROADMAP.md §Phase 11`).
+- **Next step:** Phase 11.3 — Delete bill from home screen (uploader-only, server-side subcollection wipe).
+- **Phase 11.2 done:** Group name sticky frosted-glass header on home screen. `src/app/groups/[groupId]/page.tsx` — group name `<h1>` placed as the first element inside the scroll container with `position: sticky; top: 0`, `backdrop-filter: blur(18px)`, semi-transparent warm-white background, and a 20px gradient fade below it so bill cards appear to slide under glass as you scroll. The "1 Issue" in dev tools is a Grammarly extension hydration false-positive on `<body>`, unrelated to our code.
 - **Phase 10.2 done:** Grid page UX overhaul + Splitwise push. What was built:
   - Bottom bar removed from grid page entirely.
   - "Edit my selections" amber outline button above the table; tappable confirmed-users banner (bill owner only, `›` arrow) opens settle sheet; settle sheet replaces `forceSettleBill` with per-member checkboxes + "Settle all" toggle; saves to `confirmedBy`; notifies members on change via `/api/notify-settle`.

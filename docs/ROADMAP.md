@@ -96,7 +96,7 @@ Full design spec in `docs/PROJECT_PLAN.md §14`. This phase replaces the bottom 
 ## Phase 11 — UI refinements
 
 - [x] **11.1** *(released by user — UI changes outside Claude Code)*
-- [ ] **11.2** Group name header on home screen: display the group name prominently on the bills feed page so users know which group they're viewing without opening the hamburger menu.
+- [x] **11.2** Group name header on home screen: display the group name prominently on the bills feed page so users know which group they're viewing without opening the hamburger menu.
 - [ ] **11.3** Delete bill from home screen: bill uploader gets a small red trash icon on their bill cards (bottom-right, same pattern as manage screen). Tap → confirmation dialog → server-side delete of the bill doc + all subcollections (items, selections) via an API route. Uploader-only; admins cannot delete other people's bills.
 - [ ] **11.4** Color-graded bill cards + section grouping: three visual states — "Needs Attention" (current user hasn't acted; amber/yellow left-border accent), "In Progress" (user confirmed, waiting on others; blue left-border accent), "Settled" (all members confirmed; green left-border accent). Bills grouped into these three sections in that order, newest-first within each section. Replaces the current flat chronological list.
 - [ ] **11.5** Replace floating home icon with inline `← Home` link: remove the floating FAB-style home button from bill flow pages (select, review, grid). Replace with a simple non-floating `← Home` text link at the top of the page content that scrolls with the page.
