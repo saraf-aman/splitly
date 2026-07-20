@@ -117,9 +117,43 @@ iOS requirement: FCM push via PWA requires iOS 16.4+ and the app installed to th
 
 ## 8. Splitwise integration
 
-- Requires a Splitwise API key (user generates this from their Splitwise account settings — a short one-time step) and the target Splitwise **group name/ID**.
-- On the final grid screen, a button pushes the computed per-person totals into the connected Splitwise group as a new expense, itemized or as a lump sum per person (decide exact format at implementation time).
+- Per-user OAuth connect/disconnect lives in the NavDrawer. Splitwise group linking (which Splitwise group receives pushes for this household) is **creator-only** — no other admin can link/unlink a group. This avoids conflicts from two admins linking different groups.
 - This is additive — the in-app final grid remains the source of truth even without Splitwise connected.
+
+### Member resolution at push time
+
+When pushing, each household member is resolved to a Splitwise user in this order:
+1. `members/{uid}.splitwiseUserId` (persisted after OAuth connect, or admin-set) — takes full priority, email logic is skipped for these members.
+2. Email match against the Splitwise group member list — uses `members/{uid}.splitwiseEmail` (admin-set alternate) if set, otherwise `members/{uid}.email` (Google account email).
+
+Unresolved members are omitted from the Splitwise expense (not an error — bill owner is warned and can proceed or cancel to fix).
+
+### Push UX (grid screen, Phase 10.2)
+
+**Button placement:** Outside the horizontal-scroll table container (never scrolls left/right). Sits in the main scrollable area directly below the table. Left-padded `pl-[130px]` so its left edge aligns with the first member column, giving the visual impression it sits right below the totals numbers. Compact width, not full-width. Visible to bill uploader only when the household has a Splitwise group linked.
+
+**Error cascade (each step is a dialog):**
+1. Uploader not connected to Splitwise → connect dialog.
+2. Connected but no Splitwise group linked → "Ask the group creator to link a Splitwise group."
+3. Group linked but bill not settled → "Please settle the bill before pushing to Splitwise."
+4. All conditions met, not yet pushed → pre-push resolver sheet: shows each member as resolved (green) or unresolved/omitted (amber). "Push anyway" / "Cancel."
+5. Already pushed (`splitwiseExpenseId` set) → warning dialog: "This will create a duplicate expense in Splitwise." If confirmed, push again. Never block re-push — only warn. Splitwise has no idempotency; duplicates must be deleted in Splitwise manually.
+
+**After push:** Write `splitwiseExpenseId: number` to the bill doc. Button remains tappable but always shows the duplicate warning on subsequent taps.
+
+**Payer:** bill uploader; their `users/{uid}.splitwise.accessToken` is used. Currency: USD.
+
+### Settle management (grid screen, Phase 10.2)
+
+The existing "Mark as settled" button is replaced with a tappable confirmed-users banner:
+- Banner shows "X of Y confirmed" + member pills (existing). A `›` arrow on the right signals it's interactive.
+- Tapping opens a bottom sheet — **bill uploader only** (not admin, not creator unless they are the uploader — the person who paid controls their bill).
+- Sheet contains: "Settle all" toggle at top + a per-member checkbox row (pre-ticked if `confirmedBy[uid]` is set).
+- Saving writes/removes `confirmedBy` entries accordingly — supports partial settle, full force-settle, and un-settling.
+- Notifications on save: settled → "Your portion of [bill] has been marked as confirmed by [owner name]"; un-settled → "Your portion of [bill] has been reopened by [owner name]."
+
+### Data model additions (Phase 10.2)
+- `bills/{billId}.splitwiseExpenseId?: number` — set after first successful push.
 
 ## 9. Feature list
 

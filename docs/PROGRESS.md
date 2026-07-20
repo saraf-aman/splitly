@@ -5,13 +5,14 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** Phase 10.2 — "Push to Splitwise" button on the final grid screen.
-  - Needs: `POST /api/splitwise/push` API route, `splitwiseExpenseId` field on bill doc, button on grid page (uploader-only, greyed until settled, shows "Pushed ✓" after push).
-  - **Member resolution order at push time:** (1) `members/{uid}.splitwiseUserId` (persisted from self-connect or admin-set); (2) email match against Splitwise group member list — uses `members/{uid}.splitwiseEmail` override if set, otherwise `members/{uid}.email`. Linked members (`splitwiseUserId` set) are never touched by email logic.
-  - **Pre-push summary screen:** show which members resolved successfully and which didn't. Bill owner can proceed (unresolved members omitted from Splitwise expense) or cancel to fix.
-  - **Payer:** bill uploader; their `users/{uid}.splitwise.accessToken` is required. Currency: USD.
-  - **Block:** once pushed, button shows "Pushed ✓" and is disabled. Push only allowed after bill is settled.
-  - **Wrong email handling:** if admin entered a wrong `splitwiseEmail`, that member shows as unresolved in the pre-push summary — owner proceeds without them or cancels to fix.
+- **Next step:** Phase 10.2 — "Push to Splitwise" + grid page UX overhaul. Full design spec in `docs/ROADMAP.md` (10.2 step) and `docs/PROJECT_PLAN.md §8`. Key decisions locked in design session:
+  - **Grid page:** bottom bar removed entirely. "Edit my selections" moves above table (amber outline, left-aligned). shadcn Button height bumped `h-10` → `h-12` globally. Edit buttons on other members' column headers styled amber instead of muted.
+  - **Settle sheet:** confirmed-users banner becomes tappable (bill uploader only, `›` arrow). Opens bottom sheet with "Settle all" + per-member checkboxes. Saves to `confirmedBy`. Sends notifications on change. Replaces `forceSettleBill`.
+  - **Splitwise button:** outside `overflow-x-auto` (no horizontal scroll), `pl-[130px]` to align under first member column, compact width, uploader-only. Error cascade via dialogs: not connected → connect; no group linked → "ask creator"; not settled → settle first; pre-push resolver sheet; already pushed → duplicate warning (allow re-push with warning, never block).
+  - **Re-push:** always warns "This will create a duplicate expense in Splitwise." — no second sentence. Splitwise has no idempotency; user must delete duplicates in Splitwise.
+  - **Creator-only** for Splitwise group linking (unchanged).
+  - New Firestore field: `bills/{billId}.splitwiseExpenseId?: number`.
+  - New API route: `POST /api/splitwise/push`.
 - **Phase 10.1 — Splitwise connect + group linking + manage page (done):**
   - **Vercel callback fix:** `NEXT_PUBLIC_APP_URL` had a trailing slash → double-slash in redirect_uri → Splitwise `invalid_grant`. Fixed with `.replace(/\/$/, "")` in both connect and callback routes.
   - **Connect/disconnect:** per-user OAuth in NavDrawer. `useSplitwiseStatus(uid)` realtime listener. Callback `returnPath` stored in state doc so user returns to their group page after OAuth.

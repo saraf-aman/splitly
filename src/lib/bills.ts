@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc, where, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, deleteField, doc, getDoc, onSnapshot, orderBy, query, updateDoc, where, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import type { Bill, BillItem, ParsedReceipt, SharedCharge, SharedChargeType } from "@/types/firestore";
 
@@ -69,6 +69,19 @@ export async function forceSettleBill(billId: string, memberIds: string[]): Prom
   const confirmedBy: Record<string, boolean> = {};
   for (const id of memberIds) confirmedBy[`confirmedBy.${id}`] = true;
   await updateDoc(doc(db, "bills", billId), confirmedBy);
+}
+
+// Updates individual members' settled state. Pass true to mark confirmed,
+// false to remove their confirmedBy entry (un-settle).
+export async function updateMemberSettleStates(
+  billId: string,
+  states: Record<string, boolean>,
+): Promise<void> {
+  const updates: Record<string, boolean | ReturnType<typeof deleteField>> = {};
+  for (const [uid, settled] of Object.entries(states)) {
+    updates[`confirmedBy.${uid}`] = settled ? true : deleteField();
+  }
+  await updateDoc(doc(db, "bills", billId), updates);
 }
 
 export async function updateItemSelection(

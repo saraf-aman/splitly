@@ -62,6 +62,7 @@ export interface Bill {
   createdAt: Timestamp;
   parsedResult: ParsedReceipt;
   confirmedBy?: Record<string, boolean>; // uid → true when member has confirmed their selections
+  splitwiseExpenseId?: number; // set after a successful push to Splitwise
 }
 
 // bills/{billId}/items/{itemId}
