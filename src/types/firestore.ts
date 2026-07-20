@@ -26,7 +26,7 @@ export interface Member {
   photoUrl: string;
   email: string;
   role: Role;
-  fcmTokens: string[];
+  fcmTokens: Record<string, string>; // deviceId → FCM token; one entry per browser context
   addedAt: Timestamp;
   splitwiseUserId?: number; // set by self-connect (via OAuth callback); persists across disconnect; admin cannot overwrite
   splitwiseEmail?: string;  // admin-set alternate Splitwise email, only used when splitwiseUserId is absent

@@ -41,9 +41,8 @@ export async function POST(req: NextRequest) {
 
   const label = billName ? `"${billName}"` : "the bill";
 
-  const tokens: string[] = [];
-  const tokenOwner = new Map<string, string>();
-  const staleByMember = new Map<string, string[]>();
+  let totalSent = 0;
+  const staleUpdates: Promise<unknown>[] = [];
 
   for (const { uid, settled } of changes) {
     const memberSnap = await adminDb
@@ -53,23 +52,26 @@ export async function POST(req: NextRequest) {
       .doc(uid)
       .get();
 
-    const fcmTokens = (memberSnap.data()?.fcmTokens ?? []) as string[];
-    if (fcmTokens.length === 0) continue;
+    const fcmTokens = (memberSnap.data()?.fcmTokens ?? {}) as Record<string, string>;
+    const entries = Object.entries(fcmTokens);
+    if (entries.length === 0) continue;
 
-    const title = settled
-      ? "Bill confirmed"
-      : "Bill reopened";
+    const tokens = entries.map(([, token]) => token);
+
+    const title = settled ? "Bill confirmed" : "Bill reopened";
     const body = settled
       ? `Your portion of ${label} has been marked as confirmed by ${ownerName}`
       : `Your portion of ${label} has been reopened by ${ownerName}`;
     const link = `/groups/${groupId}/bills/${billId}/grid`;
 
     const response = await messaging.sendEachForMulticast({
-      tokens: fcmTokens,
+      tokens,
       notification: { title, body },
       webpush: { fcmOptions: { link } },
       data: { link },
     });
+
+    totalSent += response.successCount;
 
     response.responses.forEach((r, i) => {
       if (
@@ -77,26 +79,20 @@ export async function POST(req: NextRequest) {
         (r.error?.code === "messaging/registration-token-not-registered" ||
           r.error?.code === "messaging/invalid-registration-token")
       ) {
-        if (!staleByMember.has(uid)) staleByMember.set(uid, []);
-        staleByMember.get(uid)!.push(fcmTokens[i]!);
+        const deviceId = entries[i]![0];
+        staleUpdates.push(
+          adminDb
+            .collection("households")
+            .doc(groupId)
+            .collection("members")
+            .doc(uid)
+            .update({ [`fcmTokens.${deviceId}`]: FieldValue.delete() }),
+        );
       }
     });
-
-    for (const t of fcmTokens) { tokens.push(t); tokenOwner.set(t, uid); }
   }
 
-  if (staleByMember.size > 0) {
-    await Promise.all(
-      Array.from(staleByMember.entries()).map(([uid, staleTokens]) =>
-        adminDb
-          .collection("households")
-          .doc(groupId)
-          .collection("members")
-          .doc(uid)
-          .update({ fcmTokens: FieldValue.arrayRemove(...staleTokens) }),
-      ),
-    );
-  }
+  if (staleUpdates.length > 0) await Promise.all(staleUpdates);
 
-  return NextResponse.json({ sent: tokens.length });
+  return NextResponse.json({ sent: totalSent });
 }

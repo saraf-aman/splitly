@@ -44,17 +44,19 @@ export async function POST(req: NextRequest) {
     .collection("members")
     .get();
 
-  // Collect FCM tokens from all members except the uploader, mapping each
-  // token back to its owner so stale tokens can be cleaned up per-member.
+  // Collect FCM tokens from all members except the uploader.
+  // fcmTokens is a deviceId→token map — one entry per browser context,
+  // so each physical device only appears once.
   const tokens: string[] = [];
-  const tokenOwner = new Map<string, string>(); // token → memberId
+  // token → { memberId, deviceId } so we can remove stale entries by field path.
+  const tokenMeta = new Map<string, { memberId: string; deviceId: string }>();
 
   for (const memberDoc of membersSnap.docs) {
     if (memberDoc.id === uploaderUid) continue;
-    const fcmTokens = (memberDoc.data().fcmTokens ?? []) as string[];
-    for (const token of fcmTokens) {
+    const fcmTokens = (memberDoc.data().fcmTokens ?? {}) as Record<string, string>;
+    for (const [deviceId, token] of Object.entries(fcmTokens)) {
       tokens.push(token);
-      tokenOwner.set(token, memberDoc.id);
+      tokenMeta.set(token, { memberId: memberDoc.id, deviceId });
     }
   }
 
@@ -76,33 +78,28 @@ export async function POST(req: NextRequest) {
   });
 
   // Remove tokens that the FCM service reports as invalid/unregistered.
-  const staleByMember = new Map<string, string[]>();
+  const staleUpdates: Promise<unknown>[] = [];
   response.responses.forEach((r, i) => {
     if (
       !r.success &&
       (r.error?.code === "messaging/registration-token-not-registered" ||
         r.error?.code === "messaging/invalid-registration-token")
     ) {
-      const memberId = tokenOwner.get(tokens[i]!);
-      if (memberId) {
-        if (!staleByMember.has(memberId)) staleByMember.set(memberId, []);
-        staleByMember.get(memberId)!.push(tokens[i]!);
+      const meta = tokenMeta.get(tokens[i]!);
+      if (meta) {
+        staleUpdates.push(
+          adminDb
+            .collection("households")
+            .doc(groupId)
+            .collection("members")
+            .doc(meta.memberId)
+            .update({ [`fcmTokens.${meta.deviceId}`]: FieldValue.delete() }),
+        );
       }
     }
   });
 
-  if (staleByMember.size > 0) {
-    await Promise.all(
-      Array.from(staleByMember.entries()).map(([memberId, staleTokens]) =>
-        adminDb
-          .collection("households")
-          .doc(groupId)
-          .collection("members")
-          .doc(memberId)
-          .update({ fcmTokens: FieldValue.arrayRemove(...staleTokens) }),
-      ),
-    );
-  }
+  if (staleUpdates.length > 0) await Promise.all(staleUpdates);
 
   return NextResponse.json({ sent: response.successCount });
 }

@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { arrayUnion, doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+
+function getDeviceId(): string {
+  let id = localStorage.getItem("splitly_device_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("splitly_device_id", id);
+  }
+  return id;
+}
 
 async function storeFcmToken(uid: string, groupId: string) {
   if (!VAPID_KEY) return;
@@ -15,9 +24,16 @@ async function storeFcmToken(uid: string, groupId: string) {
   const messaging = getMessaging(app);
   const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
   if (!token) return;
-  await updateDoc(doc(db, "households", groupId, "members", uid), {
-    fcmTokens: arrayUnion(token),
-  });
+  const deviceId = getDeviceId();
+  const memberRef = doc(db, "households", groupId, "members", uid);
+  try {
+    // Atomic field-path write: replaces only this device's entry in the map.
+    await updateDoc(memberRef, { [`fcmTokens.${deviceId}`]: token });
+  } catch {
+    // Migration fallback: if fcmTokens is still the old string[] schema, the
+    // dot-notation write fails. Overwrite the whole field with a fresh map.
+    await updateDoc(memberRef, { fcmTokens: { [deviceId]: token } });
+  }
 }
 
 // Returns whether to show the notification permission banner, and a function

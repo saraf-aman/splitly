@@ -38,7 +38,7 @@ export async function createGroup(user: User, name: string): Promise<string> {
     photoUrl: user.photoURL ?? "",
     email: user.email ?? "",
     role: "admin",
-    fcmTokens: [],
+    fcmTokens: {},
     addedAt: serverTimestamp(),
   });
   await setDoc(doc(db, "users", user.uid), { householdIds: arrayUnion(groupRef.id) }, { merge: true });
@@ -52,7 +52,7 @@ export async function joinGroup(user: User, groupId: string): Promise<void> {
     photoUrl: user.photoURL ?? "",
     email: user.email ?? "",
     role: "guest",
-    fcmTokens: [],
+    fcmTokens: {},
     addedAt: serverTimestamp(),
   });
   await setDoc(doc(db, "users", user.uid), { householdIds: arrayUnion(trimmedId) }, { merge: true });
