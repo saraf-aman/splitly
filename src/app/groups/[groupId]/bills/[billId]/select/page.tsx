@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Lock, MoreVertical, Pencil, X } from "lucide-react";
+import { ArrowLeft, Lock, MoreVertical, Pencil, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges, updateItemSelection, confirmSelections } from "@/lib/bills";
 import { useMembers } from "@/lib/group";
@@ -100,7 +101,15 @@ export default function SelectItemsPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-background">
-      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-10">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-10">
+        <Link
+          href={`/groups/${groupId}`}
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
+        >
+          <ArrowLeft size={15} />
+          Home
+        </Link>
+
         {overrideMember && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-100 px-4 py-3">
             <Pencil className="size-4 shrink-0 text-amber-700" />

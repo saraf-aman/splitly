@@ -1,8 +1,9 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertTriangle, Check, ChevronRight, Clock, Lock, Pencil, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, Clock, Lock, Pencil, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges, updateMemberSettleStates } from "@/lib/bills";
 import { useGroup, useMembers } from "@/lib/group";
@@ -191,6 +192,16 @@ export default function GridPage() {
   return (
     <div className="flex flex-1 flex-col bg-background">
       <div className="flex-1 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+
+        <div className="px-4 pt-4 pb-2">
+          <Link
+            href={`/groups/${groupId}`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
+          >
+            <ArrowLeft size={15} />
+            Home
+          </Link>
+        </div>
 
         {/* Status banner — tappable by bill uploader to manage settle */}
         <div

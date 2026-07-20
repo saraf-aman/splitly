@@ -89,31 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       </header>
 
-      {/* Floating home button — outside the header, inner screens only */}
-      {isInnerScreen && (
-        <Link
-          href={`/groups/${hhId}`}
-          aria-label="Go to group home"
-          className="fixed inline-flex items-center justify-center"
-          style={{
-            top: NAV_H + 10,
-            left: 24,
-            zIndex: 30,
-            width: 38,
-            height: 38,
-            borderRadius: "50%",
-            background: "#FFFBF5",
-            border: "1px solid rgba(0,0,0,0.08)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.10)",
-            fontSize: "18px",
-            lineHeight: 1,
-          }}
-        >
-          🏠
-        </Link>
-      )}
-
-      <main style={{ paddingTop: isInnerScreen ? NAV_H + PILL_H : NAV_H }} className="flex flex-1 flex-col">
+      <main style={{ paddingTop: NAV_H }} className="flex flex-1 flex-col">
         {children}
       </main>
 
