@@ -410,15 +410,18 @@ export default function GridPage() {
           </table>
         </div>
 
-        {/* Push to Splitwise — outside scroll, aligned under first member column */}
+        {/* Push to Splitwise — flex spacer mirrors the sticky item column width */}
         {isUploader && (
-          <div className="px-4 pt-2 pb-4" style={{ paddingLeft: 130 }}>
-            <button
-              className="inline-flex items-center gap-2 rounded-lg border border-primary/40 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
-              onClick={handleSplitwisePush}
-            >
-              Push to Splitwise
-            </button>
+          <div className="flex pt-2 pb-4">
+            <div className="w-[130px] shrink-0" />
+            <div className="px-2">
+              <button
+                className="inline-flex items-center gap-2 rounded-lg border border-primary/40 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+                onClick={handleSplitwisePush}
+              >
+                Push to Splitwise
+              </button>
+            </div>
           </div>
         )}
       </div>
