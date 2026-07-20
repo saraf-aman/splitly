@@ -172,14 +172,20 @@ function BillCard({
         <div className="flex items-end justify-between pt-0.5">
           {members.length > 0 ? (
             <div className="flex gap-1.5">
-              {members.map((m) => (
-                <MemberChip
-                  key={m.id}
-                  member={m}
-                  confirmed={!!confirmedBy[m.id]}
-                  isOwner={m.id === bill.uploadedBy}
-                />
-              ))}
+              {[...members]
+                .sort((a, b) => {
+                  const rank = (m: typeof a) =>
+                    m.id === bill.uploadedBy ? 0 : confirmedBy[m.id] ? 1 : 2;
+                  return rank(a) - rank(b);
+                })
+                .map((m) => (
+                  <MemberChip
+                    key={m.id}
+                    member={m}
+                    confirmed={!!confirmedBy[m.id]}
+                    isOwner={m.id === bill.uploadedBy}
+                  />
+                ))}
             </div>
           ) : <div />}
 
