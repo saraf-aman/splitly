@@ -73,7 +73,10 @@ export async function POST(req: NextRequest) {
   const response = await messaging.sendEachForMulticast({
     tokens,
     notification: { title, body },
-    webpush: { fcmOptions: { link } },
+    webpush: {
+      notification: { tag: `bill-open-${billId}` },
+      fcmOptions: { link },
+    },
     data: { link },
   });
 
