@@ -131,7 +131,7 @@ export default function GroupManagePage() {
   const showSwEmailSection = !!group.splitwiseGroupId && unlinkedMembers.length > 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 bg-background px-4 py-6">
+    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 bg-background px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
       <h1 className="text-heading text-foreground">Manage group</h1>
 
       {/* ── Members table ── */}

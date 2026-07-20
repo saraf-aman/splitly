@@ -91,41 +91,18 @@ Full design spec in `docs/PROJECT_PLAN.md §14`. This phase replaces the bottom 
 ## Phase 10 — Splitwise integration
 
 - [x] **10.1** Splitwise OAuth connect/disconnect (per-user, in NavDrawer); per-group Splitwise group link/unlink (owner-only, also in NavDrawer); groups picker page redesigned with collapsed Add/Join form.
-- [ ] **10.2** "Push to Splitwise" button + grid page UX overhaul. Full design spec below; see also `PROJECT_PLAN.md §8`.
+- [x] **10.2** "Push to Splitwise" button + grid page UX overhaul. Full design spec in `PROJECT_PLAN.md §8`.
 
-  **Grid page layout changes (this step):**
-  - Remove bottom bar entirely — no more bottom-anchored buttons on the grid page.
-  - "Edit my selections" moves above the table (between confirmed banner and the table), left-aligned, amber outline style (`bg-amber-50 border-amber-300 text-amber-800`) — warm/personal feel, distinct from teal group-level actions.
-  - shadcn Button default height bumped from `h-10` → `h-12` globally (applies to all screens).
-  - Edit buttons in other members' column headers (bill owner only) styled `text-amber-700 border-amber-300` instead of muted — more visible without changing size.
+## Phase 11 — UI refinements
 
-  **Settle management (replaces "Mark as settled" button):**
-  - Confirmed-users banner at the top becomes tappable (bill owner only). Add a `›` arrow on the right so it's clearly interactive.
-  - Tapping opens a bottom sheet with a per-member checklist: each member shown with a checkbox (pre-ticked if `confirmedBy[uid]` is set). "Settle all" toggle at the top auto-ticks/unticks everyone.
-  - Saving writes `confirmedBy` for each ticked member (and removes it for unticked). This means the owner can partially settle, un-settle, or force-settle all in one sheet — replaces `forceSettleBill`.
-  - Notifications on save: if a member's state changed from unsettled → settled, notify them "Your portion of [bill] has been marked as confirmed by [owner]". If settled → unsettled, notify "Your portion of [bill] has been reopened by [owner]".
-  - Only the bill uploader (`uploadedBy`) can open this sheet — not admins, not the creator, unless they are the uploader.
+Steps to be defined by the user. Add individual items here as they are discussed and scoped.
 
-  **"Push to Splitwise" button:**
-  - Placed outside the `overflow-x-auto` table container (does not scroll horizontally) but inside the main scrollable area, directly below the table.
-  - Left-padded `pl-[130px]` to align its left edge with the first member column (matching the sticky item column's min-width) — visually reads as sitting below the totals numbers.
-  - Compact width (not full-width), right-to-left natural sizing.
-  - Visible to bill uploader only when the group has a Splitwise group linked.
-  - Error cascade on tap (each step shows a dialog, most with an actionable CTA):
-    1. Uploader not connected to Splitwise → "Connect Splitwise" dialog.
-    2. Connected but no Splitwise group linked → "Ask the group creator to link a Splitwise group" dialog (creator-only can link — no change to that rule).
-    3. Group linked but bill not settled → "Please settle the bill before pushing to Splitwise" dialog.
-    4. All conditions met, not yet pushed → pre-push resolver sheet: lists each member as resolved (has `splitwiseUserId` or email match) or unresolved (will be omitted). "Push anyway" / "Cancel" buttons.
-    5. Already pushed (`splitwiseExpenseId` set on bill) → warning dialog "This will create a duplicate expense in Splitwise." → confirm → push again (Splitwise has no idempotency; duplicates must be deleted manually in Splitwise). Never block re-push, only warn.
-  - On successful push: write `splitwiseExpenseId` to the bill doc. Button state reflects this (still tappable but shows duplicate warning on next tap).
+- [ ] **11.1** *(to be added)*
 
-  **New Firestore field:** `bills/{billId}.splitwiseExpenseId?: number`
-  **New API route:** `POST /api/splitwise/push`
+## Phase 12 — Polish & v2 features
 
-## Phase 11 — Polish & v2 features
-
-- [ ] **11.1** Manual fallback entry: skip AI parsing entirely and type items directly.
-- [ ] **11.2** Reminder nudges for members who haven't responded to an open bill after a set time.
-- [ ] **11.3** Smart defaults: auto-uncheck items a given user has consistently opted out of historically.
-- [ ] **11.4** Per-bill notes field (e.g. "I'm paying for the wine separately, don't include me").
-- [ ] **11.5** General mobile polish pass, offline/error state handling, loading states.
+- [ ] **12.1** Manual fallback entry: skip AI parsing entirely and type items directly.
+- [ ] **12.2** Reminder nudges for members who haven't responded to an open bill after a set time.
+- [ ] **12.3** Smart defaults: auto-uncheck items a given user has consistently opted out of historically.
+- [ ] **12.4** Per-bill notes field (e.g. "I'm paying for the wine separately, don't include me").
+- [ ] **12.5** General mobile polish pass, offline/error state handling, loading states.

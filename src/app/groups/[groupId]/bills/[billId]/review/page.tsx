@@ -171,7 +171,7 @@ export default function ReviewBillPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-background">
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-10">
         <div className="mb-4">
           <h1 className="text-heading text-foreground">
             {bill.restaurantOrStoreName ?? "Review receipt"}

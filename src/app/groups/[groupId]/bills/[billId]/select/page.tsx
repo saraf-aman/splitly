@@ -100,7 +100,7 @@ export default function SelectItemsPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-background">
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-10">
         {overrideMember && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-100 px-4 py-3">
             <Pencil className="size-4 shrink-0 text-amber-700" />

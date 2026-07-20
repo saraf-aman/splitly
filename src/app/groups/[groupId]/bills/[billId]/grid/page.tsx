@@ -190,7 +190,7 @@ export default function GridPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-background">
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
 
         {/* Status banner — tappable by bill uploader to manage settle */}
         <div
@@ -427,7 +427,7 @@ export default function GridPage() {
 
         {/* Push to Splitwise — flex spacer mirrors the sticky item column width */}
         {isUploader && (
-          <div className="flex pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+          <div className="flex pt-2 pb-2">
             <div style={{ width: stickyColWidth }} className="shrink-0" />
             <div className="px-2">
               <button

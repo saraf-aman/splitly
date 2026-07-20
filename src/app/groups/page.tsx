@@ -33,7 +33,7 @@ export default function GroupsPickerPage() {
   if (loading || (groupIds.length < 2 && !joinMode && !pickerMode)) return null;
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-4 bg-background px-6 pt-10 pb-8">
+    <div className="flex flex-1 flex-col items-center gap-4 bg-background px-6 pt-10 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
       <div className="flex flex-col items-center gap-1 text-center">
         <h1 className="text-heading text-foreground">Your groups</h1>
         <p className="text-body text-muted-foreground">Choose one to open</p>
