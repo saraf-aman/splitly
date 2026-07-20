@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AlertTriangle, Check, ChevronRight, Clock, Lock, Pencil, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -44,6 +44,21 @@ export default function GridPage() {
   const [settleSheetOpen, setSettleSheetOpen] = useState(false);
   const [settleStates, setSettleStates] = useState<Record<string, boolean>>({});
   const [settleSaving, setSettleSaving] = useState(false);
+
+  // Measures the actual rendered width of the sticky item column so the
+  // Splitwise button spacer aligns correctly regardless of content width.
+  const stickyColRef = useRef<HTMLTableCellElement>(null);
+  const [stickyColWidth, setStickyColWidth] = useState(130);
+  useLayoutEffect(() => {
+    const el = stickyColRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setStickyColWidth(w);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Splitwise dialog state
   const [swDialog, setSwDialog] = useState<SwDialog>("idle");
@@ -230,7 +245,7 @@ export default function GridPage() {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b bg-muted">
-                <th className="sticky left-0 z-10 bg-muted min-w-[130px] max-w-[180px] px-4 py-2.5 text-left text-caption font-medium text-muted-foreground">
+                <th ref={stickyColRef} className="sticky left-0 z-10 bg-muted min-w-[130px] max-w-[180px] px-4 py-2.5 text-left text-caption font-medium text-muted-foreground">
                   Item
                 </th>
                 {members.map((m) => {
@@ -413,7 +428,7 @@ export default function GridPage() {
         {/* Push to Splitwise — flex spacer mirrors the sticky item column width */}
         {isUploader && (
           <div className="flex pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-            <div className="w-[130px] shrink-0" />
+            <div style={{ width: stickyColWidth }} className="shrink-0" />
             <div className="px-2">
               <button
                 className="inline-flex items-center gap-2 rounded-lg border border-primary/40 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
