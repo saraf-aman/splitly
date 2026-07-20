@@ -97,6 +97,12 @@ export default function GridPage() {
   const isUploader = bill.uploadedBy === uid;
   const isSettled = members.length > 0 && members.every((m) => confirmedBy[m.id]);
 
+  // Grid columns: owner always first, everyone else in their original (addedAt) order.
+  const orderedMembers = [
+    ...members.filter((m) => m.id === bill.uploadedBy),
+    ...members.filter((m) => m.id !== bill.uploadedBy),
+  ];
+
   const memberIds = members.map((m) => m.id);
   const activeParticipants = getActiveParticipants(items, memberIds);
   const totals = memberIds.length > 0 ? calculateSplit(items, charges, memberIds) : null;
@@ -231,8 +237,13 @@ export default function GridPage() {
                 padding: 3,
               }}
             >
-              {members.map((m) => {
+              {[...members].sort((a, b) => {
+                const rank = (m: typeof a) =>
+                  m.id === bill.uploadedBy ? 0 : confirmedBy[m.id] ? 1 : 2;
+                return rank(a) - rank(b);
+              }).map((m) => {
                 const confirmed = confirmedBy[m.id];
+                const isOwner = m.id === bill.uploadedBy;
                 return (
                   <span
                     key={m.id}
@@ -242,7 +253,7 @@ export default function GridPage() {
                     <MemberAvatar
                       member={m}
                       size={20}
-                      ring={confirmed ? "#16A34A" : "#FBBF24"}
+                      ring={isOwner ? "#DC2626" : confirmed ? "#16A34A" : "#FBBF24"}
                     />
                   </span>
                 );
@@ -274,7 +285,7 @@ export default function GridPage() {
                 <th ref={stickyColRef} className="sticky left-0 z-10 bg-muted min-w-[130px] max-w-[180px] px-4 py-2.5 text-left text-caption font-medium text-muted-foreground">
                   Item
                 </th>
-                {members.map((m) => {
+                {orderedMembers.map((m) => {
                   const confirmed = confirmedBy[m.id];
                   const canEdit = isUploader && m.id !== uid;
                   return (
@@ -353,7 +364,7 @@ export default function GridPage() {
                       </span>
                     </div>
                   </td>
-                  {members.map((m) => {
+                  {orderedMembers.map((m) => {
                     const confirmed = confirmedBy[m.id];
                     const sel = item.selections[m.id];
                     const included = sel?.included ?? confirmed;
@@ -423,7 +434,7 @@ export default function GridPage() {
                           {formatCents(charge.amount)}
                         </span>
                       </td>
-                      {members.map((m) => (
+                      {orderedMembers.map((m) => (
                         <td
                           key={m.id}
                           className="px-2 py-2.5 text-center font-mono text-xs text-muted-foreground tabular-nums"
@@ -442,7 +453,7 @@ export default function GridPage() {
                 <td className="sticky left-0 z-10 px-4 py-3 bg-teal-50">
                   <span className="text-body font-semibold text-foreground">Total</span>
                 </td>
-                {members.map((m) => {
+                {orderedMembers.map((m) => {
                   const confirmed = confirmedBy[m.id];
                   const total = totals?.[m.id] ?? 0;
                   const display = !totals
@@ -514,7 +525,7 @@ export default function GridPage() {
 
             {/* Per-member rows */}
             <div className="flex flex-col gap-2 mb-5">
-              {members.map((m) => (
+              {orderedMembers.map((m) => (
                 <label key={m.id} className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
