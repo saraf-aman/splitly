@@ -17,9 +17,9 @@ import type { Bill, Member } from "@/types/firestore";
 type Section = "needs" | "progress" | "settled";
 
 const SECTION_META: Record<Section, { label: string; stripe: string; pill: string; pillText: string }> = {
-  needs:    { label: "Needs your input",  stripe: "#D97706", pill: "#FEF3C7", pillText: "#D97706" },
-  progress: { label: "In progress",       stripe: "#D1D5DB", pill: "#F1F0EE", pillText: "#6B7280" },
-  settled:  { label: "Settled",           stripe: "#2E6E6E", pill: "#E3EEEE", pillText: "#2E6E6E" },
+  needs:    { label: "Needs your input",  stripe: "#D97706", pill: "#FEF3C7", pillText: "#B45309" },
+  progress: { label: "In progress",       stripe: "#3B82F6", pill: "#EFF6FF", pillText: "#2563EB" },
+  settled:  { label: "Settled",           stripe: "#16A34A", pill: "#F0FDF4", pillText: "#15803D" },
 };
 
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
@@ -162,7 +162,7 @@ function BillCard({
               fontSize: 26,
               fontWeight: 700,
               letterSpacing: "-0.5px",
-              color: isSettled ? "#2E6E6E" : "#1A1A1F",
+              color: isSettled ? "#16A34A" : "#1A1A1F",
               lineHeight: 1.1,
             }}
           >
