@@ -3,7 +3,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, Clock, Lock, Pencil, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, Lock, Pencil, X } from "lucide-react";
+import { MemberAvatar } from "@/components/MemberAvatar";
 import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges, updateMemberSettleStates } from "@/lib/bills";
 import { useGroup, useMembers } from "@/lib/group";
@@ -40,6 +41,9 @@ export default function GridPage() {
   const members = useMembers(bill?.householdId ?? null);
   const group = useGroup(bill?.householdId ?? null);
   const swStatus = useSplitwiseStatus(user?.uid);
+
+  // Column header tooltip — fixed-position so it floats above the overflow-x container
+  const [tooltip, setTooltip] = useState<{ uid: string; x: number; y: number } | null>(null);
 
   // Settle sheet state
   const [settleSheetOpen, setSettleSheetOpen] = useState(false);
@@ -190,7 +194,7 @@ export default function GridPage() {
   const swButtonLabel = bill.splitwiseExpenseId ? "Push to Splitwise again" : "Push to Splitwise";
 
   return (
-    <div className="flex flex-1 flex-col bg-background">
+    <div className="flex flex-1 flex-col bg-background" onClick={() => setTooltip(null)}>
       <div className="flex-1 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
 
         <div className="px-4 pt-4 pb-2">
@@ -205,38 +209,49 @@ export default function GridPage() {
 
         {/* Status banner — tappable by bill uploader to manage settle */}
         <div
-          className={`border-b bg-card px-4 py-3 ${isUploader ? "cursor-pointer active:bg-muted/50" : ""}`}
+          className={`border-b bg-card px-4 py-2.5 ${isUploader ? "cursor-pointer active:bg-muted/50" : ""}`}
           onClick={isUploader ? openSettleSheet : undefined}
           role={isUploader ? "button" : undefined}
           aria-label={isUploader ? "Manage bill settlement" : undefined}
         >
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-caption text-muted-foreground">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* "X of Y confirmed" label */}
+            <p className="text-sm text-muted-foreground shrink-0">
               {confirmedCount} of {members.length} confirmed
             </p>
+            {/* Avatar row — scrolls horizontally if too many members.
+                py-[3px] gives the box-shadow ring room to breathe vertically;
+                overflow-y visible lets it escape without clipping. */}
+            <div
+              className="flex items-center gap-2 min-w-0"
+              style={{
+                overflowX: "auto",
+                overflowY: "visible",
+                scrollbarWidth: "none",
+                padding: 3,
+              }}
+            >
+              {members.map((m) => {
+                const confirmed = confirmedBy[m.id];
+                return (
+                  <span
+                    key={m.id}
+                    className="shrink-0"
+                    style={{ opacity: confirmed ? 1 : 0.38 }}
+                  >
+                    <MemberAvatar
+                      member={m}
+                      size={20}
+                      ring={confirmed ? "#16A34A" : "#FBBF24"}
+                    />
+                  </span>
+                );
+              })}
+            </div>
+            {/* Arrow right-aligned */}
             {isUploader && (
-              <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+              <ChevronRight className="ml-auto shrink-0 text-muted-foreground" style={{ width: 16, height: 16 }} />
             )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {members.map((m) => {
-              const confirmed = confirmedBy[m.id];
-              const firstName = m.displayName.split(" ")[0];
-              return (
-                <span
-                  key={m.id}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    confirmed
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {!confirmed && <Clock className="size-3" />}
-                  {firstName}
-                  {confirmed && <Check className="size-3" />}
-                </span>
-              );
-            })}
           </div>
         </div>
 
@@ -261,7 +276,6 @@ export default function GridPage() {
                 </th>
                 {members.map((m) => {
                   const confirmed = confirmedBy[m.id];
-                  const firstName = m.displayName.split(" ")[0];
                   const canEdit = isUploader && m.id !== uid;
                   return (
                     <th
@@ -270,14 +284,27 @@ export default function GridPage() {
                         confirmed ? "text-foreground" : "bg-muted/60 text-muted-foreground"
                       }`}
                     >
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="flex items-center justify-center gap-1">
-                          {!confirmed && <Clock className="size-3 shrink-0" />}
-                          <span className="truncate">{firstName}</span>
-                        </div>
-                        {m.id === uid && (
-                          <span className="text-[10px] font-normal text-muted-foreground">(you)</span>
-                        )}
+                      {/* Photo + Edit button side by side, vertically centred */}
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setTooltip((prev) =>
+                              prev?.uid === m.id
+                                ? null
+                                : { uid: m.id, x: rect.left + rect.width / 2, y: rect.bottom + 6 },
+                            );
+                          }}
+                          aria-label={`Show name: ${m.displayName}`}
+                          style={{ lineHeight: 0, flexShrink: 0 }}
+                        >
+                          <MemberAvatar
+                            member={m}
+                            size={20}
+                            ring={confirmed ? "#16A34A" : "#FBBF24"}
+                          />
+                        </button>
                         {canEdit && (
                           <button
                             className="flex items-center gap-0.5 rounded border border-amber-300 px-1.5 py-0.5 text-[10px] font-normal text-amber-700 hover:bg-amber-50"
@@ -497,8 +524,9 @@ export default function GridPage() {
                       setSettleStates((prev) => ({ ...prev, [m.id]: e.target.checked }))
                     }
                   />
+                  <MemberAvatar member={m} size={28} ring="transparent" />
                   <span className="flex-1 text-body text-foreground">
-                    {m.displayName.split(" ")[0]}
+                    {m.displayName}
                     {m.id === uid && (
                       <span className="ml-1.5 text-caption text-muted-foreground">(you)</span>
                     )}
@@ -680,6 +708,28 @@ export default function GridPage() {
           onConfirm={() => setSwDialog("idle")}
           onCancel={null}
         />
+      )}
+
+      {/* Floating name tooltip for grid column header photos */}
+      {tooltip && (
+        <div
+          style={{
+            position: "fixed",
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: "translateX(-50%)",
+            background: "#1A1A1F",
+            color: "#fff",
+            fontSize: 11,
+            padding: "3px 8px",
+            borderRadius: 6,
+            whiteSpace: "nowrap",
+            zIndex: 100,
+            pointerEvents: "none",
+          }}
+        >
+          {members.find((m) => m.id === tooltip.uid)?.displayName}
+        </div>
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import {
   doc,
   collection,
   deleteDoc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -252,4 +253,17 @@ export async function deleteGroup(groupId: string, creatorUid: string): Promise<
   );
   await deleteDoc(doc(db, "households", groupId, "members", creatorUid));
   await deleteDoc(doc(db, "households", groupId));
+}
+
+// Refreshes photoUrl on all the user's member docs from their current Firebase Auth profile.
+// Called on every login so profile photos stay up to date even if they changed their Google photo.
+export async function refreshMemberPhotoUrl(uid: string, photoURL: string): Promise<void> {
+  if (!photoURL) return;
+  const userSnap = await getDoc(doc(db, "users", uid));
+  const householdIds: string[] = userSnap.data()?.householdIds ?? [];
+  await Promise.all(
+    householdIds.map((hid) =>
+      updateDoc(doc(db, "households", hid, "members", uid), { photoUrl: photoURL }).catch(() => {}),
+    ),
+  );
 }

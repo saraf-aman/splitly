@@ -10,6 +10,7 @@ import { useGroupBills } from "@/lib/bills";
 import { useSplitwiseStatus } from "@/lib/splitwise";
 import { formatCents } from "@/lib/utils";
 import { NotificationBanner } from "@/components/NotificationBanner";
+import { MemberAvatar } from "@/components/MemberAvatar";
 import type { Bill, Member } from "@/types/firestore";
 
 // ─── Section helpers ────────────────────────────────────────────────────────
@@ -67,45 +68,13 @@ function formatBillDate(bill: Bill & { id: string }): string {
 
 // ─── Member chip ─────────────────────────────────────────────────────────────
 
-function MemberChip({ member, confirmed, isMe }: { member: Member & { id: string }; confirmed: boolean; isMe: boolean }) {
-  const initial = member.displayName ? member.displayName.charAt(0).toUpperCase() : "?";
-
-  let bg = "#F1F0EE";
-  let color = "#9CA3AF";
-  let outline = "none";
-
-  if (confirmed) {
-    bg = "#2E6E6E";
-    color = "#FFFFFF";
-    outline = isMe ? "2px solid #1A4F4F" : "none";
-  } else if (isMe) {
-    bg = "#FEF3C7";
-    color = "#D97706";
-    outline = "1.5px solid #FDE68A";
-  }
-
-  return (
-    <span
-      title={member.displayName}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 28,
-        height: 28,
-        borderRadius: "50%",
-        background: bg,
-        color,
-        outline,
-        outlineOffset: confirmed && isMe ? "1px" : undefined,
-        fontSize: 11,
-        fontWeight: 700,
-        flexShrink: 0,
-      }}
-    >
-      {initial}
-    </span>
-  );
+function MemberChip({ member, confirmed, isOwner }: {
+  member: Member & { id: string };
+  confirmed: boolean;
+  isOwner: boolean;
+}) {
+  const ring = isOwner ? "#DC2626" : confirmed ? "#16A34A" : "#FBBF24";
+  return <MemberAvatar member={member} size={28} ring={ring} />;
 }
 
 // ─── Bill card ────────────────────────────────────────────────────────────────
@@ -208,7 +177,7 @@ function BillCard({
                   key={m.id}
                   member={m}
                   confirmed={!!confirmedBy[m.id]}
-                  isMe={m.id === uid}
+                  isOwner={m.id === bill.uploadedBy}
                 />
               ))}
             </div>
