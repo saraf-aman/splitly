@@ -5,7 +5,8 @@
 ## Current state
 _Update this block at the end of every session. This is the only section a new session needs to read — full history entries below are reference only._
 
-- **Next step:** Phase 11.3 — Delete bill from home screen (uploader-only, server-side subcollection wipe).
+- **Next step:** Phase 11.4 — Color-graded bill cards + section grouping (Needs Attention / In Progress / Settled).
+- **Phase 11.3 done:** Delete bill from home screen. `src/app/api/bills/[billId]/route.ts` — DELETE handler, verifies ID token, checks `uploadedBy === uid`, deletes `items` + `sharedCharges` subcollections then the bill doc. `page.tsx` — red trash button (bottom-right of card, uploader-only, `e.stopPropagation()` to avoid Link nav), confirmation dialog rendered at page level with dimmed backdrop, bill name bolded in copy, loading + error states.
 - **Phase 11.2 done:** Group name sticky frosted-glass header on home screen. `src/app/groups/[groupId]/page.tsx` — group name `<h1>` placed as the first element inside the scroll container with `position: sticky; top: 0`, `backdrop-filter: blur(18px)`, semi-transparent warm-white background, and a 20px gradient fade below it so bill cards appear to slide under glass as you scroll. The "1 Issue" in dev tools is a Grammarly extension hydration false-positive on `<body>`, unrelated to our code.
 - **Phase 10.2 done:** Grid page UX overhaul + Splitwise push. What was built:
   - Bottom bar removed from grid page entirely.

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useGroup, useMembers } from "@/lib/group";
 import { useGroupBills } from "@/lib/bills";
@@ -115,11 +115,15 @@ function BillCard({
   groupId,
   uid,
   members,
+  isUploader,
+  onDeleteRequest,
 }: {
   bill: Bill & { id: string };
   groupId: string;
   uid: string;
   members: (Member & { id: string })[];
+  isUploader: boolean;
+  onDeleteRequest: (bill: Bill & { id: string }) => void;
 }) {
   const memberIds = members.map((m) => m.id);
   const section = getSection(bill, uid, memberIds);
@@ -195,19 +199,44 @@ function BillCard({
           );
         })()}
 
-        {/* Member chips */}
-        {members.length > 0 && (
-          <div className="flex gap-1.5 pt-0.5">
-            {members.map((m) => (
-              <MemberChip
-                key={m.id}
-                member={m}
-                confirmed={!!confirmedBy[m.id]}
-                isMe={m.id === uid}
-              />
-            ))}
-          </div>
-        )}
+        {/* Bottom row: member chips + delete button */}
+        <div className="flex items-end justify-between pt-0.5">
+          {members.length > 0 ? (
+            <div className="flex gap-1.5">
+              {members.map((m) => (
+                <MemberChip
+                  key={m.id}
+                  member={m}
+                  confirmed={!!confirmedBy[m.id]}
+                  isMe={m.id === uid}
+                />
+              ))}
+            </div>
+          ) : <div />}
+
+          {isUploader && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDeleteRequest(bill);
+              }}
+              aria-label="Delete bill"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                background: "#FEE2E2",
+                flexShrink: 0,
+              }}
+            >
+              <Trash2 size={14} color="#DC2626" />
+            </button>
+          )}
+        </div>
       </div>
     </Link>
   );
@@ -226,6 +255,29 @@ export default function GroupHomePage() {
 
   const [swConnecting, setSwConnecting] = useState(false);
   const [swConnectError, setSwConnectError] = useState<string | null>(null);
+
+  const [deletingBill, setDeletingBill] = useState<(Bill & { id: string }) | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDeleteConfirm() {
+    if (!deletingBill || !user) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/bills/${deletingBill.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      setDeletingBill(null);
+    } catch {
+      setDeleteError("Could not delete bill. Please try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
 
   // Show banner when: group has Splitwise configured AND current user is not connected
   const showSwBanner = !swLoading && !swConnected && !!group?.splitwiseGroupId;
@@ -339,6 +391,8 @@ export default function GroupHomePage() {
                   groupId={groupId}
                   uid={uid}
                   members={members}
+                  isUploader={bill.uploadedBy === uid}
+                  onDeleteRequest={setDeletingBill}
                 />
               ))}
             </div>
@@ -362,6 +416,53 @@ export default function GroupHomePage() {
       >
         <Camera size={24} color="#ffffff" />
       </Link>
+
+      {/* Delete confirmation dialog */}
+      {deletingBill && (
+        <div
+          className="fixed inset-0 flex items-center justify-center px-6"
+          style={{ background: "rgba(0,0,0,0.4)", zIndex: 50 }}
+          onClick={() => { if (!deleteLoading) setDeletingBill(null); }}
+        >
+          <div
+            className="flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-card p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1">
+              <p style={{ fontSize: 16, fontWeight: 700, color: "#1A1A1F" }}>Delete bill?</p>
+              <p style={{ fontSize: 13.5, color: "#6B7280", lineHeight: 1.5 }}>
+                <span style={{ fontWeight: 600, color: "#1A1A1F" }}>
+                  {deletingBill.restaurantOrStoreName ?? "This receipt"}
+                </span>{" "}
+                and all selections will be permanently deleted. This cannot be undone.
+              </p>
+            </div>
+
+            {deleteError && (
+              <p style={{ fontSize: 12.5, color: "#DC2626" }}>{deleteError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingBill(null)}
+                disabled={deleteLoading}
+                className="flex flex-1 items-center justify-center rounded-xl border border-border py-2.5 text-sm font-semibold text-foreground transition-opacity disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+                style={{ background: "#DC2626" }}
+              >
+                {deleteLoading && <Loader2 size={14} className="animate-spin" />}
+                {deleteLoading ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
