@@ -264,6 +264,9 @@ export default function GridPage() {
                           {!confirmed && <Clock className="size-3 shrink-0" />}
                           <span className="truncate">{firstName}</span>
                         </div>
+                        {m.id === uid && (
+                          <span className="text-[10px] font-normal text-muted-foreground">(you)</span>
+                        )}
                         {canEdit && (
                           <button
                             className="flex items-center gap-0.5 rounded border border-amber-300 px-1.5 py-0.5 text-[10px] font-normal text-amber-700 hover:bg-amber-50"
