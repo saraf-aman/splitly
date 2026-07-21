@@ -7,11 +7,18 @@ import { db } from "./firebase";
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 
 function getDeviceId(): string {
-  let id = localStorage.getItem("splitly_device_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("splitly_device_id", id);
-  }
+  // Cookies are shared between Safari and the PWA home screen on iOS (same origin,
+  // same cookie jar). localStorage is isolated per browser context, so using it
+  // alone would give Safari and the PWA different IDs → two tokens → two notifications.
+  const cookieMatch = document.cookie.match(/(?:^|;\s*)splitly_did=([^;]+)/);
+  if (cookieMatch?.[1]) return cookieMatch[1];
+
+  // No cookie yet — check localStorage for a legacy ID, or generate a fresh one.
+  const id = localStorage.getItem("splitly_device_id") ?? crypto.randomUUID();
+
+  // Write to cookie (1 year, survives PWA reinstall) so future contexts share it.
+  document.cookie = `splitly_did=${id}; max-age=${365 * 24 * 60 * 60}; path=/; SameSite=Lax`;
+  localStorage.setItem("splitly_device_id", id);
   return id;
 }
 
