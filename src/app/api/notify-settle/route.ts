@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
     changes: { uid: string; settled: boolean }[];
   };
 
+  console.log("[notify-settle]", JSON.stringify({ groupId, billId, ownerName, changes }));
+
   if (!groupId || !billId || !ownerName || !changes?.length) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }

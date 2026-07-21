@@ -111,7 +111,7 @@ export default function ReviewBillPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             billId,
-            householdId: bill.householdId,
+            groupId: bill.householdId,
             uploaderUid: bill.uploadedBy,
             billName: bill.restaurantOrStoreName ?? null,
           }),
