@@ -55,11 +55,18 @@ const messagingInstance = getMessaging(firebaseApp);
 onBackgroundMessage(messagingInstance, (payload) => {
   const title = payload.notification?.title ?? "Splitly";
   const body = payload.notification?.body ?? "New activity in your household";
-  const link = (payload.data as Record<string, string> | undefined)?.link ?? "/";
+  const data = (payload.data ?? {}) as Record<string, string>;
+  const link = data.link ?? "/";
+  // tag collapses duplicate showNotification calls from the same push event
+  // firing more than once (e.g. two tokens pointing at the same device).
+  // The OS replaces the first notification with the second silently — no flicker,
+  // because both notifications have identical content.
+  const tag = data.tag;
   void self.registration.showNotification(title, {
     body,
     icon: "/icon-192.png",
     badge: "/icon-192.png",
+    tag,
     data: { link },
   });
 });

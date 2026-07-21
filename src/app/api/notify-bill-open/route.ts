@@ -70,14 +70,16 @@ export async function POST(req: NextRequest) {
     : "A new bill is ready — tap to select your items";
   const link = `/bills/${billId}/select`;
 
+  const tag = `bill-open-${billId}`;
+
   const response = await messaging.sendEachForMulticast({
     tokens,
     notification: { title, body },
     webpush: {
-      notification: { tag: `bill-open-${billId}` },
+      notification: { tag },
       fcmOptions: { link },
     },
-    data: { link },
+    data: { link, tag },
   });
 
   // Remove tokens that the FCM service reports as invalid/unregistered.

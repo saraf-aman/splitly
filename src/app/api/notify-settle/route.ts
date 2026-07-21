@@ -31,8 +31,6 @@ export async function POST(req: NextRequest) {
     changes: { uid: string; settled: boolean }[];
   };
 
-  console.log("[notify-settle]", JSON.stringify({ groupId, billId, ownerName, changes }));
-
   if (!groupId || !billId || !ownerName || !changes?.length) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -65,15 +63,16 @@ export async function POST(req: NextRequest) {
       ? `Your portion of ${label} has been marked as confirmed by ${ownerName}`
       : `Your portion of ${label} has been reopened by ${ownerName}`;
     const link = `/groups/${groupId}/bills/${billId}/grid`;
+    const tag = `settle-${billId}`;
 
     const response = await messaging.sendEachForMulticast({
       tokens,
       notification: { title, body },
       webpush: {
-        notification: { tag: `settle-${billId}` },
+        notification: { tag },
         fcmOptions: { link },
       },
-      data: { link },
+      data: { link, tag },
     });
 
     totalSent += response.successCount;

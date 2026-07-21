@@ -130,7 +130,6 @@ export default function GridPage() {
   }
 
   async function saveSettleStates() {
-    console.log("[saveSettleStates] called", new Date().toISOString());
     setSettleSaving(true);
     try {
       const diff: Record<string, boolean> = {};
