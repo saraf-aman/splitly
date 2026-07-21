@@ -103,11 +103,15 @@ export default function SelectItemsPage() {
     <div className="flex flex-1 flex-col bg-background">
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-10">
         <Link
-          href={`/groups/${groupId}`}
+          href={
+            searchParams.get("from") === "grid"
+              ? `/groups/${groupId}/bills/${billId}/grid`
+              : `/groups/${groupId}`
+          }
           className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
         >
           <ArrowLeft size={15} />
-          Home
+          {searchParams.get("from") === "grid" ? "Back" : "Home"}
         </Link>
 
         {overrideMember && (

@@ -255,7 +255,7 @@ export default function GridPage() {
         <div className="px-4 pt-3 pb-1">
           <button
             className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 active:bg-amber-200 transition-colors"
-            onClick={() => router.push(`/groups/${groupId}/bills/${billId}/select`)}
+            onClick={() => router.push(`/groups/${groupId}/bills/${billId}/select?from=grid`)}
           >
             <Pencil className="size-3.5" />
             Edit my selections
@@ -306,7 +306,7 @@ export default function GridPage() {
                             className="flex items-center gap-0.5 rounded border border-amber-300 px-1.5 py-0.5 text-[10px] font-normal text-amber-700 hover:bg-amber-50"
                             onClick={() =>
                               router.push(
-                                `/groups/${groupId}/bills/${billId}/select?as=${m.id}`,
+                                `/groups/${groupId}/bills/${billId}/select?as=${m.id}&from=grid`,
                               )
                             }
                           >
