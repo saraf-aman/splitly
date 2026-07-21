@@ -56,8 +56,6 @@ export async function POST(req: NextRequest) {
     const entries = Object.entries(fcmTokens);
     if (entries.length === 0) continue;
 
-    const tokens = entries.map(([, token]) => token);
-
     const title = settled ? "Bill confirmed" : "Bill reopened";
     const body = settled
       ? `Your portion of ${label} has been marked as confirmed by ${ownerName}`
@@ -65,8 +63,13 @@ export async function POST(req: NextRequest) {
     const link = `/groups/${groupId}/bills/${billId}/grid`;
     const tag = `settle-${billId}`;
 
+    // Deduplicate by token value — same token stored under multiple deviceId keys
+    // (a legacy artifact from before the cookie-based deviceId) would otherwise
+    // produce duplicate push events on the same device.
+    const uniqueTokens = [...new Set(entries.map(([, token]) => token))];
+
     const response = await messaging.sendEachForMulticast({
-      tokens,
+      tokens: uniqueTokens,
       notification: { title, body },
       webpush: {
         notification: { tag },
@@ -83,15 +86,20 @@ export async function POST(req: NextRequest) {
         (r.error?.code === "messaging/registration-token-not-registered" ||
           r.error?.code === "messaging/invalid-registration-token")
       ) {
-        const deviceId = entries[i]![0];
-        staleUpdates.push(
-          adminDb
-            .collection("households")
-            .doc(groupId)
-            .collection("members")
-            .doc(uid)
-            .update({ [`fcmTokens.${deviceId}`]: FieldValue.delete() }),
-        );
+        const staleToken = uniqueTokens[i]!;
+        // Remove every deviceId entry pointing to this token.
+        for (const [deviceId, token] of entries) {
+          if (token === staleToken) {
+            staleUpdates.push(
+              adminDb
+                .collection("households")
+                .doc(groupId)
+                .collection("members")
+                .doc(uid)
+                .update({ [`fcmTokens.${deviceId}`]: FieldValue.delete() }),
+            );
+          }
+        }
       }
     });
   }

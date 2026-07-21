@@ -72,8 +72,14 @@ export async function POST(req: NextRequest) {
 
   const tag = `bill-open-${billId}`;
 
+  // Deduplicate by token value. Safari and the PWA home screen on iOS share the same
+  // SW registration → same FCM token, but before the cookie-based deviceId fix they
+  // stored it under two different keys. Sending the same token twice produces two
+  // separate push events → two notifications on the device.
+  const uniqueTokens = [...new Set(tokens)];
+
   const response = await messaging.sendEachForMulticast({
-    tokens,
+    tokens: uniqueTokens,
     notification: { title, body },
     webpush: {
       notification: { tag },
@@ -90,7 +96,7 @@ export async function POST(req: NextRequest) {
       (r.error?.code === "messaging/registration-token-not-registered" ||
         r.error?.code === "messaging/invalid-registration-token")
     ) {
-      const meta = tokenMeta.get(tokens[i]!);
+      const meta = tokenMeta.get(uniqueTokens[i]!);
       if (meta) {
         staleUpdates.push(
           adminDb
