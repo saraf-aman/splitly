@@ -16,7 +16,7 @@ interface Props {
 
 export function GroupFormCard({ title, description }: Props) {
   const { user } = useAuth();
-  const [mode, setMode] = useState<"create" | "join">("create");
+  const [mode, setMode] = useState<"create" | "join">("join");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
