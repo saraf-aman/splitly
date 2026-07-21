@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { Trash2, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Trash2, CheckCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   deleteGroup,
@@ -132,6 +133,14 @@ export default function GroupManagePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 bg-background px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+      <Link
+        href={`/groups/${groupId}`}
+        className="-mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
+      >
+        <ArrowLeft size={15} />
+        Home
+      </Link>
+
       <h1 className="text-heading text-foreground">Manage group</h1>
 
       {/* ── Members table ── */}

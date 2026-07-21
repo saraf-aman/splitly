@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useState, type ChangeEvent } from "react";
-import { Camera } from "lucide-react";
+import { ArrowLeft, Camera } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createBill, parseBillImage } from "@/lib/bills";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,15 @@ export default function NewBillPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-background px-6">
+    <div className="relative flex flex-1 flex-col items-center justify-center gap-6 bg-background px-6">
+      <Link
+        href={`/groups/${groupId}`}
+        className="absolute left-4 top-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
+      >
+        <ArrowLeft size={15} />
+        Home
+      </Link>
+
       <h1 className="text-heading text-foreground">Upload a receipt</h1>
 
       <Card className="w-full max-w-xs p-0">
