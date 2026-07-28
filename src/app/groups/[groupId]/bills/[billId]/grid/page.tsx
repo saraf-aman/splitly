@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, Lock, Pencil, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, Lock, Pencil, Users, X } from "lucide-react";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import { useAuth } from "@/lib/auth-context";
-import { useBill, useBillItems, useSharedCharges, updateMemberSettleStates } from "@/lib/bills";
+import { useBill, useBillItems, useSharedCharges, updateMemberSettleStates, setBillParticipants } from "@/lib/bills";
 import { useGroup, useMembers } from "@/lib/group";
 import { useSplitwiseStatus } from "@/lib/splitwise";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,8 @@ export default function GridPage() {
   const { bill, loading: billLoading } = useBill(billId);
   const { items, loading: itemsLoading } = useBillItems(billId);
   const { charges, loading: chargesLoading } = useSharedCharges(billId);
-  const members = useMembers(bill?.householdId ?? null);
+  const allMembers = useMembers(bill?.householdId ?? null);
+  const members = bill?.participantIds ? allMembers.filter((m) => bill.participantIds!.includes(m.id)) : allMembers;
   const group = useGroup(bill?.householdId ?? null);
   const swStatus = useSplitwiseStatus(user?.uid);
 
@@ -54,6 +55,14 @@ export default function GridPage() {
   const [swDialog, setSwDialog] = useState<SwDialog>("idle");
   const [swError, setSwError] = useState<string | null>(null);
   const [warnedDuplicate, setWarnedDuplicate] = useState(false);
+
+  // Manage participants sheet (Phase 12.2) — staged like the settle sheet:
+  // checkbox taps only update local state, nothing writes (or notifies)
+  // until Save, so playing with checkboxes doesn't fire a push per click.
+  const [manageSheetOpen, setManageSheetOpen] = useState(false);
+  const [participantStates, setParticipantStates] = useState<Record<string, boolean>>({});
+  const [participantSaving, setParticipantSaving] = useState(false);
+  const [blockedMemberName, setBlockedMemberName] = useState<string | null>(null);
 
   const loading = billLoading || itemsLoading || chargesLoading;
   const uid = user?.uid ?? "";
@@ -95,6 +104,68 @@ export default function GridPage() {
   // Resolve which members have a Splitwise user ID (for the resolver sheet preview)
   const resolvedMembers = members.filter((m) => !!m.splitwiseUserId);
   const unresolvedMembers = members.filter((m) => !m.splitwiseUserId);
+
+  // ── Manage participants (Phase 12.2) ────────────────────────────────────────
+  // A member has "interacted" once they've confirmed, or touched any item's
+  // selection — either signal means removing them would silently discard
+  // something they did, so it's blocked rather than allowed.
+  function memberHasInteracted(memberId: string): boolean {
+    if (confirmedBy[memberId]) return true;
+    return items.some((item) => memberId in item.selections);
+  }
+
+  function notifyParticipantChange(memberId: string, action: "added" | "removed") {
+    const ownerName = members.find((m) => m.id === uid)?.displayName ?? "The bill owner";
+    void fetch("/api/notify-participant-change", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        groupId: bill!.householdId,
+        billId,
+        billName: bill!.restaurantOrStoreName,
+        ownerName,
+        memberUid: memberId,
+        action,
+      }),
+    }).catch(() => {});
+  }
+
+  function openManageSheet() {
+    const init: Record<string, boolean> = {};
+    for (const m of allMembers) init[m.id] = members.some((pm) => pm.id === m.id);
+    setParticipantStates(init);
+    setManageSheetOpen(true);
+  }
+
+  function handleToggleParticipant(memberId: string, memberName: string) {
+    const isCurrentlyChecked = participantStates[memberId] ?? false;
+    if (isCurrentlyChecked && memberHasInteracted(memberId)) {
+      setBlockedMemberName(memberName);
+      return;
+    }
+    setParticipantStates((prev) => ({ ...prev, [memberId]: !isCurrentlyChecked }));
+  }
+
+  async function saveParticipants() {
+    setParticipantSaving(true);
+    try {
+      const originalIds = new Set(members.map((m) => m.id));
+      const nextIds = allMembers.filter((m) => participantStates[m.id]).map((m) => m.id);
+      const nextIdSet = new Set(nextIds);
+
+      const added = allMembers.filter((m) => nextIdSet.has(m.id) && !originalIds.has(m.id));
+      const removed = allMembers.filter((m) => !nextIdSet.has(m.id) && originalIds.has(m.id));
+
+      if (added.length > 0 || removed.length > 0) {
+        await setBillParticipants(billId, nextIds);
+        for (const m of added) notifyParticipantChange(m.id, "added");
+        for (const m of removed) notifyParticipantChange(m.id, "removed");
+      }
+      setManageSheetOpen(false);
+    } finally {
+      setParticipantSaving(false);
+    }
+  }
 
   // ── Settle sheet ────────────────────────────────────────────────────────────
 
@@ -251,8 +322,8 @@ export default function GridPage() {
           </div>
         </div>
 
-        {/* Edit my selections — above the grid */}
-        <div className="px-4 pt-3 pb-1">
+        {/* Edit my selections + manage participants — above the grid */}
+        <div className="flex flex-wrap gap-2 px-4 pt-3 pb-1">
           <button
             className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 active:bg-amber-200 transition-colors"
             onClick={() => router.push(`/groups/${groupId}/bills/${billId}/select?from=grid`)}
@@ -260,6 +331,15 @@ export default function GridPage() {
             <Pencil className="size-3.5" />
             Edit my selections
           </button>
+          {isUploader && (
+            <button
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary active:bg-secondary transition-colors"
+              onClick={openManageSheet}
+            >
+              <Users className="size-3.5" />
+              Manage participants
+            </button>
+          )}
         </div>
 
         {/* Scrollable grid */}
@@ -540,6 +620,92 @@ export default function GridPage() {
             </Button>
           </div>
         </>
+      )}
+
+      {/* ── Manage participants sheet (Phase 12.2) ──────────────────────────── */}
+      {manageSheetOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => !participantSaving && setManageSheetOpen(false)}
+          />
+          <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-card px-6 pt-5 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-xl max-h-[70vh] overflow-y-auto">
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-body font-semibold text-foreground">Manage participants</p>
+              <button
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => !participantSaving && setManageSheetOpen(false)}
+                aria-label="Close"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-caption text-muted-foreground">
+              Only checked members can see this bill.
+            </p>
+
+            <div className="flex flex-col gap-2 mb-5">
+              {allMembers.map((m) => {
+                const isSelf = m.id === uid;
+                return (
+                  <label
+                    key={m.id}
+                    className={`flex items-center gap-3 ${isSelf ? "opacity-60" : "cursor-pointer"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-5 shrink-0 cursor-pointer accent-primary disabled:cursor-not-allowed"
+                      checked={participantStates[m.id] ?? false}
+                      disabled={isSelf || participantSaving}
+                      onChange={() => handleToggleParticipant(m.id, m.displayName.split(" ")[0] ?? "This member")}
+                    />
+                    <MemberAvatar member={m} size={28} ring="transparent" />
+                    <span className="flex-1 text-body text-foreground">
+                      {m.displayName}
+                      {isSelf && <span className="ml-1.5 text-caption text-muted-foreground">(you)</span>}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <Button className="w-full" disabled={participantSaving} onClick={saveParticipants}>
+              {participantSaving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </>
+      )}
+
+      {/* Can't remove — member has already interacted (warning style) */}
+      {blockedMemberName && (
+        <div
+          className="fixed inset-0 flex items-center justify-center px-6"
+          style={{ background: "rgba(0,0,0,0.4)", zIndex: 60 }}
+          onClick={() => setBlockedMemberName(null)}
+        >
+          <div
+            className="flex w-full max-w-sm flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-semibold text-amber-900">
+                  Can&apos;t remove {blockedMemberName}
+                </p>
+                <p className="text-xs leading-relaxed text-amber-800">
+                  {`${blockedMemberName} has already made selections on this bill. Ask them to either reset their picks, or clear their selections yourself.`}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setBlockedMemberName(null)}
+              className="rounded-lg bg-amber-600 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── Splitwise dialogs ────────────────────────────────────────────────── */}

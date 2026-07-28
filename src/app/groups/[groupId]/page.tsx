@@ -224,7 +224,7 @@ export default function GroupHomePage() {
   const { user } = useAuth();
   const group = useGroup(groupId);
   const members = useMembers(groupId);
-  const { bills, loading } = useGroupBills(groupId);
+  const { bills, loading } = useGroupBills(groupId, user?.uid ?? null);
   const { loading: swLoading, connected: swConnected } = useSplitwiseStatus(user?.uid);
   const uid = user?.uid ?? "";
 
@@ -277,13 +277,16 @@ export default function GroupHomePage() {
     }
   }
   const memberIds = members.map((m) => m.id);
+  // A bill only concerns its own participants (Phase 12.1), not the whole
+  // household — fall back to every member for bills predating that field.
+  const billMemberIds = (bill: Bill & { id: string }) => bill.participantIds ?? memberIds;
 
   const sections: Section[] = ["needs", "progress", "settled"];
   const grouped = Object.fromEntries(
     sections.map((s) => [
       s,
       bills.filter((b) => {
-        if (getSection(b, uid, memberIds) !== s) return false;
+        if (getSection(b, uid, billMemberIds(b)) !== s) return false;
         if (s === "settled" && isSettledAndOld(b)) return false;
         return true;
       }),
@@ -365,7 +368,7 @@ export default function GroupHomePage() {
                   bill={bill}
                   groupId={groupId}
                   uid={uid}
-                  members={members}
+                  members={members.filter((m) => billMemberIds(bill).includes(m.id))}
                   isUploader={bill.uploadedBy === uid}
                   onDeleteRequest={setDeletingBill}
                 />

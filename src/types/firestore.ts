@@ -63,6 +63,10 @@ export interface Bill {
   parsedResult: ParsedReceipt;
   confirmedBy?: Record<string, boolean>; // uid → true when member has confirmed their selections
   splitwiseExpenseId?: number; // set after a successful push to Splitwise
+  // Subset of household members this bill applies to; uploader always included.
+  // Optional for backward compat with bills created before Phase 12.1 — treat
+  // a missing value as "every household member" everywhere it's read.
+  participantIds?: string[];
 }
 
 // bills/{billId}/items/{itemId}

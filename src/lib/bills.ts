@@ -195,16 +195,21 @@ export function useBillItems(billId: string | null) {
   return { items, loading: billId === null ? false : loading };
 }
 
-export function useGroupBills(groupId: string | null) {
+export function useGroupBills(groupId: string | null, uid: string | null) {
   const [bills, setBills] = useState<(Bill & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !uid) return;
+    // Firestore rules gate bill reads on participantIds, so the query itself
+    // must filter on it too — rules reject a query that could return a
+    // document it can't prove satisfies the rule, they don't silently
+    // redact non-matching docs from a broader query.
     return onSnapshot(
       query(
         collection(db, "bills"),
         where("householdId", "==", groupId),
+        where("participantIds", "array-contains", uid),
         orderBy("createdAt", "desc"),
       ),
       (snap) => {
@@ -213,12 +218,17 @@ export function useGroupBills(groupId: string | null) {
       },
       () => setLoading(false),
     );
-  }, [groupId]);
+  }, [groupId, uid]);
 
   return { bills, loading };
 }
 
-export async function createBill(user: User, groupId: string, parsed: ParsedBill): Promise<string> {
+export async function createBill(
+  user: User,
+  groupId: string,
+  parsed: ParsedBill,
+  participantIds: string[],
+): Promise<string> {
   const { restaurantOrStoreName, billDate, ...parsedResult } = parsed;
   const billRef = await addDoc(collection(db, "bills"), {
     householdId: groupId,
@@ -228,6 +238,19 @@ export async function createBill(user: User, groupId: string, parsed: ParsedBill
     status: "pending_review",
     createdAt: serverTimestamp(),
     parsedResult,
+    // Uploader must always be able to see/act on their own bill.
+    participantIds: participantIds.includes(user.uid) ? participantIds : [...participantIds, user.uid],
   });
   return billRef.id;
+}
+
+// Phase 12.2 — uploader-only participant management after a bill exists.
+// Firestore rules restrict changes to `participantIds` to the bill's
+// uploader; the "has this member already interacted" check that gates
+// removal happens client-side (grid page) before this is ever called. A
+// single overwrite (rather than per-toggle arrayUnion/arrayRemove calls) so
+// the manage-participants sheet can stage several changes and write — and
+// notify — them all at once on Save, instead of firing a push per checkbox tap.
+export async function setBillParticipants(billId: string, participantIds: string[]): Promise<void> {
+  await updateDoc(doc(db, "bills", billId), { participantIds });
 }

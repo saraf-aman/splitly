@@ -27,7 +27,8 @@ export default function SelectItemsPage() {
   const { bill, loading: billLoading } = useBill(billId);
   const { items, loading: itemsLoading } = useBillItems(billId);
   const { charges, loading: chargesLoading } = useSharedCharges(billId);
-  const members = useMembers(bill?.householdId ?? null);
+  const allMembers = useMembers(bill?.householdId ?? null);
+  const members = bill?.participantIds ? allMembers.filter((m) => bill.participantIds!.includes(m.id)) : allMembers;
 
   const [sharesItemId, setSharesItemId] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);

@@ -38,13 +38,18 @@ export async function POST(req: NextRequest) {
   const adminDb = getFirestore(app);
   const messaging = getMessaging(app);
 
+  // Bills predating Phase 12.1 have no participantIds — treat that as
+  // "every household member", matching how the rest of the app reads it.
+  const billSnap = await adminDb.collection("bills").doc(billId).get();
+  const participantIds = billSnap.data()?.participantIds as string[] | undefined;
+
   const membersSnap = await adminDb
     .collection("households")
     .doc(groupId)
     .collection("members")
     .get();
 
-  // Collect FCM tokens from all members except the uploader.
+  // Collect FCM tokens from participants only, except the uploader.
   // fcmTokens is a deviceId→token map — one entry per browser context,
   // so each physical device only appears once.
   const tokens: string[] = [];
@@ -53,6 +58,7 @@ export async function POST(req: NextRequest) {
 
   for (const memberDoc of membersSnap.docs) {
     if (memberDoc.id === uploaderUid) continue;
+    if (participantIds && !participantIds.includes(memberDoc.id)) continue;
     const fcmTokens = (memberDoc.data().fcmTokens ?? {}) as Record<string, string>;
     for (const [deviceId, token] of Object.entries(fcmTokens)) {
       tokens.push(token);
