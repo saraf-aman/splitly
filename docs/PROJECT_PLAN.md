@@ -63,6 +63,10 @@ users/{userId}               // reverse index: which household(s) this signed-in
   householdIds: string[]     // a user may belong to multiple households (Phase 8) — a simple
                              // array field, not a subcollection, since it's always read all-at-
                              // once for a picker/dashboard and never queried/filtered independently
+  fcmTokens: { [deviceId]: string }  // device push tokens, centralized here (not per-household —
+                             // see Phase 12.2 follow-up) since a token isn't household-specific and
+                             // nothing in the UI reads another member's token; notify routes read
+                             // it via the Admin SDK, which bypasses rules anyway
 
 households/{householdId}
   name: string
@@ -72,7 +76,6 @@ households/{householdId}
     displayName: string
     photoUrl: string
     role: "admin" | "guest"
-    fcmTokens: string[]        // for push notifications, can be multiple devices
     addedAt: timestamp
 
 bills/{billId}
@@ -397,8 +400,9 @@ Amount color: `#1A1A1F` when open/in-progress, `#2E6E6E` teal when settled.
 Today every bill is visible to and actionable by every household member. Phase 12 scopes each bill to an explicit subset (`participantIds`), because in a household of 3-4 not everyone is in on every purchase.
 
 - **At upload:** `/bills/new` shows a pre-checked checklist of all household members; the uploader unchecks anyone not involved. `bills/{billId}.participantIds: string[]` is written at creation — the uploader is always included. Home feed queries and `firestore.rules` (`read`/`update`/`delete` on `bills/{billId}` and its `items`/`sharedCharges` subcollections) gate on `request.auth.uid in resource.data.participantIds` rather than plain household membership.
-- **Adding later:** uploader-only (not admin — ownership of the bill, not household role, controls this), reachable from review/select/grid. Appending a uid to `participantIds` makes the bill immediately visible/actionable to that person.
-- **Removing later:** uploader-only, and only permitted while that member's selections are still fully at default (`included: true, shares: 1` on every item — i.e. they haven't touched anything). If they've made any change, block removal with: *"[Name] has already made selections on this bill. Ask them to either reset their picks, or clear their selections yourself."* (the uploader can already edit any member's selections via the Phase 6.4 grid override, so this isn't a dead end).
+- **Where:** a single "Manage participants" entry point on the **grid** page only (not review/select — grid is already the bill's management hub: settle sheet, uploader overrides, Splitwise push all live there). Staged like the settle sheet — checkbox taps only update local state; nothing writes or notifies until "Save" is tapped, then the diff between old/new participant lists drives one `participantIds` write.
+- **Adding:** uploader-only (not admin — ownership of the bill, not household role, controls this). Checking a not-yet-included member and saving appends their uid to `participantIds`, making the bill immediately visible/actionable to them.
+- **Removing:** uploader-only, and only permitted while that member's selections are still fully at default (`included: true, shares: 1` on every item, and they haven't hit Confirm — i.e. no `confirmedBy` entry and no `selections[uid]` on any item). If they've interacted, block removal with a warning-styled dialog (amber border, `AlertTriangle` icon): *"[Name] has already made selections on this bill. Ask them to either reset their picks, or clear their selections yourself."* (the uploader can already edit any member's selections via the Phase 6.4 grid override, so this isn't a dead end).
 - **Add/remove notifications:** each change pushes the affected member directly (not the whole household) — added → "[Owner] added you to '[bill]' — tap to select your items"; removed → "[Owner] removed you from '[bill]'". Reuses the FCM send path, new route `/api/notify-participant-change`.
 
 ### Manual entry
