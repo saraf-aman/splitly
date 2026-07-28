@@ -80,8 +80,8 @@ export async function POST(req: NextRequest) {
   const billName = bill.restaurantOrStoreName as string | null;
   const title = "Everyone's made their picks";
   const body = billName
-    ? `Everyone's made their picks on "${billName}" — check the final split.`
-    : "Everyone's made their picks — check the final split.";
+    ? `Everyone's made their picks on "${billName}" — check the final split and push to Splitwise.`
+    : "Everyone's made their picks — check the final split and push to Splitwise.";
   const link = `/groups/${groupId}/bills/${billId}/grid`;
   const tag = `bill-complete-${billId}`;
 
