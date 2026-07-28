@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import { Camera, Hourglass, Loader2, Trash2, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useGroup, useMembers } from "@/lib/group";
 import { useGroupBills } from "@/lib/bills";
@@ -39,10 +39,15 @@ function getSection(bill: Bill & { id: string }, uid: string, memberIds: string[
   return "needs";
 }
 
-function getBillStatusLabel(bill: Bill & { id: string }, uid: string, memberIds: string[]): string {
+function getBillStatusLabel(bill: Bill & { id: string }, uid: string, memberIds: string[], hasSplitwise: boolean): string {
   if (bill.status === "pending_review") return "Reviewing";
   const confirmedBy = bill.confirmedBy ?? {};
-  if (memberIds.length > 0 && memberIds.every((id) => confirmedBy[id])) return "Settled";
+  if (memberIds.length > 0 && memberIds.every((id) => confirmedBy[id])) {
+    // "Settled" is reserved for truly done — once Splitwise is linked, that
+    // means pushed too, not just everyone confirmed.
+    if (hasSplitwise && !bill.splitwiseExpenseId) return "Confirmed";
+    return "Settled";
+  }
   if (confirmedBy[uid]) return "In progress";
   return "Needs your input";
 }
@@ -85,6 +90,7 @@ function BillCard({
   uid,
   members,
   isUploader,
+  hasSplitwise,
   onDeleteRequest,
 }: {
   bill: Bill & { id: string };
@@ -92,12 +98,13 @@ function BillCard({
   uid: string;
   members: (Member & { id: string })[];
   isUploader: boolean;
+  hasSplitwise: boolean;
   onDeleteRequest: (bill: Bill & { id: string }) => void;
 }) {
   const memberIds = members.map((m) => m.id);
   const section = getSection(bill, uid, memberIds);
   const meta = SECTION_META[section];
-  const statusLabel = getBillStatusLabel(bill, uid, memberIds);
+  const statusLabel = getBillStatusLabel(bill, uid, memberIds, hasSplitwise);
   const href = getBillHref(bill, groupId, uid);
   const confirmedBy = bill.confirmedBy ?? {};
   const total = bill.parsedResult?.total;
@@ -139,22 +146,60 @@ function BillCard({
           </span>
         )}
 
-        {/* Status pill */}
-        <span
-          style={{
-            display: "inline-flex",
-            alignSelf: "flex-start",
-            padding: "2px 8px",
-            borderRadius: 999,
-            fontSize: 10.5,
-            fontWeight: 700,
-            background: meta.pill,
-            color: meta.pillText,
-            letterSpacing: "0.01em",
-          }}
-        >
-          {statusLabel}
-        </span>
+        {/* Status pill + Splitwise push status (settled bills only) */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            style={{
+              display: "inline-flex",
+              alignSelf: "flex-start",
+              padding: "2px 8px",
+              borderRadius: 999,
+              fontSize: 10.5,
+              fontWeight: 700,
+              background: meta.pill,
+              color: meta.pillText,
+              letterSpacing: "0.01em",
+            }}
+          >
+            {statusLabel}
+          </span>
+
+          {isSettled && hasSplitwise && (
+            bill.splitwiseExpenseId ? (
+              <span
+                className="inline-flex items-center gap-1"
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  background: "#F0FDF4",
+                  color: "#15803D",
+                  letterSpacing: "0.01em",
+                }}
+              >
+                <CheckCircle2 size={10} />
+                Splitwise
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1"
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  background: "#FEF3C7",
+                  color: "#B45309",
+                  letterSpacing: "0.01em",
+                }}
+              >
+                <Hourglass size={10} />
+                Splitwise
+              </span>
+            )
+          )}
+        </div>
 
         {/* Uploader */}
         {(() => {
@@ -370,6 +415,7 @@ export default function GroupHomePage() {
                   uid={uid}
                   members={members.filter((m) => billMemberIds(bill).includes(m.id))}
                   isUploader={bill.uploadedBy === uid}
+                  hasSplitwise={!!group?.splitwiseGroupId}
                   onDeleteRequest={setDeletingBill}
                 />
               ))}
