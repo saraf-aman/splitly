@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { clearLastGroupId } from "@/lib/group";
 import { NavDrawer } from "@/components/NavDrawer";
 
 const SHELLLESS_PATHS = ["/login", "/onboarding"];
@@ -30,6 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isInnerScreen = !!hhId && !isHouseholdHome;
 
   async function handleSignOut() {
+    clearLastGroupId();
     await signOut(auth);
     router.replace("/login");
   }

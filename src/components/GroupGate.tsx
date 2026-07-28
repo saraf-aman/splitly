@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { clearRemovedGroupPointer, useMembershipStatus, useUserGroups } from "@/lib/group";
+import { clearRemovedGroupPointer, setLastGroupId, useMembershipStatus, useUserGroups } from "@/lib/group";
 import { useNotificationSetup } from "@/lib/notifications";
 
 const ONBOARDING_PATH = "/onboarding";
@@ -48,6 +48,15 @@ export function GroupGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     clearing.current = false;
   }, [viewedGroupId]);
+
+  // Remember the last group actually viewed so the root route can jump
+  // straight back into it next time, instead of re-running the full
+  // auth → user-doc → picker waterfall on every app open.
+  useEffect(() => {
+    if (viewedGroupId && !membership.loading && membership.isMember) {
+      setLastGroupId(viewedGroupId);
+    }
+  }, [viewedGroupId, membership.loading, membership.isMember]);
 
   useEffect(() => {
     if (!user || loading) return;

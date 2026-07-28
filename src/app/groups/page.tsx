@@ -67,10 +67,10 @@ export default function GroupsPickerPage() {
           <button
             key={g.id}
             onClick={() => router.push(`/groups/${g.id}`)}
-            className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3.5 text-left shadow-sm transition-colors hover:bg-secondary active:bg-secondary"
+            className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3.5 text-left shadow-md transition-all hover:-translate-y-px hover:shadow-lg hover:border-primary/40 active:translate-y-0 active:scale-[0.98] active:shadow-sm"
           >
             <span className="text-sm font-medium text-foreground">{g.name}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 text-primary" />
           </button>
         ))}
       </div>

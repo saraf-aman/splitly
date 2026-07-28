@@ -58,6 +58,26 @@ export async function joinGroup(user: User, groupId: string): Promise<void> {
   await setDoc(doc(db, "users", user.uid), { householdIds: arrayUnion(trimmedId) }, { merge: true });
 }
 
+const LAST_GROUP_KEY = "splitly_last_group_id";
+
+// Lets the root route redirect straight into the last-viewed group instead of
+// waiting on a Firestore round trip through the picker on every app open.
+export function getLastGroupId(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(LAST_GROUP_KEY);
+}
+
+export function setLastGroupId(groupId: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LAST_GROUP_KEY, groupId);
+}
+
+export function clearLastGroupId(groupId?: string): void {
+  if (typeof window === "undefined") return;
+  if (groupId && localStorage.getItem(LAST_GROUP_KEY) !== groupId) return;
+  localStorage.removeItem(LAST_GROUP_KEY);
+}
+
 type UserGroupsState = { loading: boolean; groupIds: string[] };
 
 export function useUserGroups(): UserGroupsState {
@@ -186,6 +206,7 @@ export function useMembershipStatus(groupId: string | null, uid: string | undefi
 // just that groupId from their array so any remaining groups still work.
 // If the array is now empty, useUserGroup returns null → routes to onboarding.
 export async function clearRemovedGroupPointer(user: User, groupId: string): Promise<void> {
+  clearLastGroupId(groupId);
   await updateDoc(doc(db, "users", user.uid), { householdIds: arrayRemove(groupId) });
 }
 
@@ -194,6 +215,7 @@ export async function clearRemovedGroupPointer(user: User, groupId: string): Pro
 // householdIds array. If the array write fails, GroupGate's wasRemoved
 // path self-heals it on next load via clearRemovedGroupPointer.
 export async function leaveGroup(user: User, groupId: string): Promise<void> {
+  clearLastGroupId(groupId);
   await deleteDoc(doc(db, "households", groupId, "members", user.uid));
   await updateDoc(doc(db, "users", user.uid), { householdIds: arrayRemove(groupId) });
 }

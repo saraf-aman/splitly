@@ -106,12 +106,15 @@ Design notes:
 - `sharedCharges` is a separate collection from `items` specifically because it's never subject to per-user include/exclude/share editing — keeping it structurally separate prevents accidental UI logic that lets someone uncheck a tax line.
 - History retention: bills older than **2 weeks** are not shown in the default history view. (Implementation options to evaluate at that stage: a scheduled Cloud Function that archives/deletes, or simply a query filter with a manual cleanup job — pick the cheaper one; likely a query filter, since there's no strict need to actually delete data at this small scale, just hide old clutter.)
 - `items` Firestore rules (Phase 6.4): today any household member can write the entire `items/{itemId}` doc, with no restriction on whose `selections` key they touch. That's tightened at Phase 6.4 by scoping the `update` rule with `request.resource.data.selections.diff(resource.data.selections).affectedKeys()`, requiring the changed keys to be either just the caller's own uid, or — if the caller is the bill's `uploadedBy` — any key at all. `create` stays open to any household member (Phase 4.2 confirm writes the initial item docs).
+- Phase 12 adds `participantIds`/`lastManualReminderAt`/`reminders` fields to `bills/{billId}` and re-scopes bill-level access from plain household membership to `participantIds` — see §15 for the full field list and rules change.
 
 ## 7. Notifications (Firebase Cloud Messaging)
 
 Triggers:
-- New bill uploaded and confirmed → notify all household members except the uploader.
-- Reminder nudge → if a member hasn't made any selection on an `open` bill after some threshold (e.g. 24h), send a gentle reminder. (v2 feature, not blocking v1.)
+- New bill uploaded and confirmed → notify all participants (§15) except the uploader.
+- Everyone's done → when the last participant confirms their selections, notify the uploader. (Phase 12.4, §15.)
+- Automated reminder → if a participant hasn't confirmed selections on an `open` bill, nudge at 24h then every 48h, capped at 3. (Phase 12.5, §15.)
+- Manual reminder → uploader-triggered "Remind everyone," rate-limited to once per 24h per bill. (Phase 12.6, §15.)
 
 iOS requirement: FCM push via PWA requires iOS 16.4+ and the app installed to the home screen. All household members are on iOS 17/18 — this is confirmed met, no special handling needed.
 
@@ -170,12 +173,18 @@ The existing "Mark as settled" button is replaced with a tappable confirmed-user
 - Home dashboard ("bills needing your input")
 - Splitwise push integration
 
-**v2 (nice-to-have, build only once the above is solid):**
-- Reminder nudges for unresponded bills
-- Smart defaults learned from history (e.g. auto-unchecking items you never buy)
+**v2 (Phase 12 — see §15):**
+- Bill participant scoping (only intended members see a given bill)
 - Manual fallback entry (skip AI parsing, type items directly)
+- "Everyone's done" + reminder notifications (automated + manual nudge)
+
+**v2.5 (nice-to-have, build only once the above is solid):**
+- Smart defaults learned from history (e.g. auto-unchecking items you never buy)
 - Low-confidence AI flagging refinements
 - Per-bill notes (e.g. "I'm paying for the wine separately")
+
+**Deferred/backlog (Phase 13, §15):**
+- Weekly email digest of unsettled bills
 
 ## 10. Explicit non-goals
 
@@ -380,3 +389,38 @@ Amount color: `#1A1A1F` when open/in-progress, `#2E6E6E` teal when settled.
 | Confirmed (you) | `#2E6E6E` + 2px `#1A4F4F` outline ring | `#FFFFFF` |
 | Pending (others) | `#F1F0EE` | `#9CA3AF` |
 | Pending (you) | `#FEF3C7` + 1.5px `#FDE68A` outline | `#D97706` |
+
+## 15. Participant scoping, manual entry & completion notifications (Phase 12)
+
+### Participant scoping
+
+Today every bill is visible to and actionable by every household member. Phase 12 scopes each bill to an explicit subset (`participantIds`), because in a household of 3-4 not everyone is in on every purchase.
+
+- **At upload:** `/bills/new` shows a pre-checked checklist of all household members; the uploader unchecks anyone not involved. `bills/{billId}.participantIds: string[]` is written at creation — the uploader is always included. Home feed queries and `firestore.rules` (`read`/`update`/`delete` on `bills/{billId}` and its `items`/`sharedCharges` subcollections) gate on `request.auth.uid in resource.data.participantIds` rather than plain household membership.
+- **Adding later:** uploader-only (not admin — ownership of the bill, not household role, controls this), reachable from review/select/grid. Appending a uid to `participantIds` makes the bill immediately visible/actionable to that person.
+- **Removing later:** uploader-only, and only permitted while that member's selections are still fully at default (`included: true, shares: 1` on every item — i.e. they haven't touched anything). If they've made any change, block removal with: *"[Name] has already made selections on this bill and can't be removed. Ask them to reset their picks first, or clear their selections for them from the grid."* (the uploader can already edit any member's selections via the Phase 6.4 grid override, so this isn't a dead end).
+
+### Manual entry
+
+`/bills/new` gains a second path alongside camera/file-picker: "Enter manually." Skips the Gemini call entirely; the uploader types item name + price rows in the same shape the parser would have produced, then flows into the existing review/confirm screens unchanged — nothing downstream (review, select, grid, Splitwise push) needs to know or care which path created the bill.
+
+### Completion & reminder notifications
+
+Three distinct notification triggers, all reusing the Phase 7 FCM send path:
+
+1. **Everyone's done** (12.4): when the last participant (per `participantIds`, uploader included if they're a participant themselves) flips their Phase 5.4 "confirm my selections" indicator, push the uploader: *"Everyone's made their picks on [bill name] — check the final split."*
+2. **Automated reminders** (12.5): a Vercel cron (`/api/cron/remind-bills`, hourly, `CRON_SECRET`-gated) nudges any participant (excluding the uploader) who hasn't confirmed on an `open` bill. Cadence, tracked per-member on the bill doc (`reminders.{uid}: { count, lastSentAt }`): first nudge at 24h after the bill opened, then every 48h after, capped at 3 total — chosen to be noticeable without becoming spam; after the cap that member goes quiet until they act or get a manual nudge.
+3. **Manual nudge** (12.6): a "Remind everyone" action inside the confirmed-members banner, uploader-only, pushes all not-yet-confirmed participants on demand. Rate-limited to once per 24h per bill via `bills/{billId}.lastManualReminderAt`, so it can't be used to spam the household; the button shows a "remind again in Xh" disabled state during cooldown.
+
+**Explicitly deferred (Phase 13.1): weekly email digest.** Would need a new external email-sending dependency (nothing in the current stack sends email), which cuts against the project's $0-running-cost default. Push already covers "you still owe a response" for installed PWAs. Revisit only if push proves insufficient in practice.
+
+### Data model additions (Phase 12)
+
+```
+bills/{billId}
+  participantIds: string[]              // subset of household members this bill applies to; uploader always included
+  lastManualReminderAt: timestamp | null // rate-limits the manual "Remind everyone" action to 1/24h
+  reminders: {
+    [userId]: { count: number, lastSentAt: timestamp }  // automated cron reminder state, per non-uploader participant
+  }
+```

@@ -50,11 +50,11 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <AuthGate>
-            <GroupGate>
-              <AppShell>{children}</AppShell>
-            </GroupGate>
-          </AuthGate>
+          <AppShell>
+            <AuthGate>
+              <GroupGate>{children}</GroupGate>
+            </AuthGate>
+          </AppShell>
         </AuthProvider>
       </body>
     </html>
