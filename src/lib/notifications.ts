@@ -22,8 +22,15 @@ function getDeviceId(): string {
   return id;
 }
 
-async function storeFcmToken(uid: string, groupId: string) {
-  if (!VAPID_KEY) return;
+// A device's FCM token isn't household-specific, but each household's notify
+// routes look tokens up from that household's own member doc — so the same
+// token has to be written to every household the user belongs to, not just
+// whichever one happened to be open when they granted permission. (Bug found
+// 2026-07-28: this used to take a single groupId, always the user's *first*
+// household, so granting notifications from any other household silently
+// never registered a token for it.)
+async function storeFcmToken(uid: string, groupIds: string[]) {
+  if (!VAPID_KEY || groupIds.length === 0) return;
   const swReg = await navigator.serviceWorker.getRegistration("/sw.js");
   if (!swReg) return;
   const { getMessaging, getToken } = await import("firebase/messaging");
@@ -32,24 +39,32 @@ async function storeFcmToken(uid: string, groupId: string) {
   const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
   if (!token) return;
   const deviceId = getDeviceId();
-  const memberRef = doc(db, "households", groupId, "members", uid);
-  try {
-    // Atomic field-path write: replaces only this device's entry in the map.
-    await updateDoc(memberRef, { [`fcmTokens.${deviceId}`]: token });
-  } catch {
-    // Migration fallback: if fcmTokens is still the old string[] schema, the
-    // dot-notation write fails. Overwrite the whole field with a fresh map.
-    await updateDoc(memberRef, { fcmTokens: { [deviceId]: token } });
-  }
+  await Promise.all(
+    groupIds.map(async (groupId) => {
+      const memberRef = doc(db, "households", groupId, "members", uid);
+      try {
+        // Atomic field-path write: replaces only this device's entry in the map.
+        await updateDoc(memberRef, { [`fcmTokens.${deviceId}`]: token });
+      } catch {
+        // Migration fallback: if fcmTokens is still the old string[] schema, the
+        // dot-notation write fails. Overwrite the whole field with a fresh map.
+        await updateDoc(memberRef, { fcmTokens: { [deviceId]: token } }).catch(() => {});
+      }
+    }),
+  );
 }
 
 // Returns whether to show the notification permission banner, and a function
 // to call from a button tap (iOS requires a user gesture to trigger the prompt).
 // If permission is already granted, silently stores the token in the background.
-export function useNotificationSetup(uid: string | undefined, groupId: string | null) {
+export function useNotificationSetup(uid: string | undefined, groupIds: string[]) {
   // Initialized to null so we can distinguish "not checked yet" from "default".
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
-  const stored = useRef(false);
+  // Tracks which groupIds set (joined) we've already stored the token for, so
+  // joining a *new* household later re-triggers a write for that one too,
+  // without re-writing on every unrelated re-render.
+  const storedForKey = useRef<string | null>(null);
+  const groupIdsKey = groupIds.join(",");
 
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window) || !VAPID_KEY) return;
@@ -59,18 +74,20 @@ export function useNotificationSetup(uid: string | undefined, groupId: string | 
   }, []);
 
   useEffect(() => {
-    if (!uid || !groupId || permission !== "granted" || stored.current) return;
-    stored.current = true;
-    void storeFcmToken(uid, groupId).catch(() => {});
-  }, [uid, groupId, permission]);
+    if (!uid || groupIds.length === 0 || permission !== "granted" || storedForKey.current === groupIdsKey) return;
+    storedForKey.current = groupIdsKey;
+    void storeFcmToken(uid, groupIds).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, groupIdsKey, permission]);
 
   async function requestPermission() {
-    if (!uid || !groupId) return;
+    if (!uid || groupIds.length === 0) return;
     try {
       const result = await Notification.requestPermission();
       setPermission(result);
       if (result === "granted") {
-        await storeFcmToken(uid, groupId);
+        storedForKey.current = groupIdsKey;
+        await storeFcmToken(uid, groupIds);
       }
     } catch (err) {
       console.error("[splitly] FCM permission request failed:", err);

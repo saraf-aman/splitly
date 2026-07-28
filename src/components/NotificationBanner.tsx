@@ -3,13 +3,13 @@
 import { Bell } from "lucide-react";
 import { useNotificationSetup } from "@/lib/notifications";
 import { useAuth } from "@/lib/auth-context";
-import { useUserGroup } from "@/lib/group";
+import { useUserGroups } from "@/lib/group";
 import { Button } from "@/components/ui/button";
 
 export function NotificationBanner() {
   const { user } = useAuth();
-  const { groupId: householdId } = useUserGroup();
-  const { needsPrompt, requestPermission } = useNotificationSetup(user?.uid, householdId);
+  const { groupIds } = useUserGroups();
+  const { needsPrompt, requestPermission } = useNotificationSetup(user?.uid, groupIds);
 
   if (!needsPrompt) return null;
 
