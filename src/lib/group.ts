@@ -28,6 +28,7 @@ import type { Group, Member, Role } from "@/types/firestore";
 // a batch would make that get() see a group that "doesn't exist yet".
 export async function createGroup(user: User, name: string): Promise<string> {
   const groupRef = doc(collection(db, "households"));
+  const splitwiseUserId = await getSplitwiseUserId(user.uid);
   await setDoc(groupRef, {
     name,
     createdAt: serverTimestamp(),
@@ -39,6 +40,7 @@ export async function createGroup(user: User, name: string): Promise<string> {
     email: user.email ?? "",
     role: "admin",
     addedAt: serverTimestamp(),
+    ...(splitwiseUserId ? { splitwiseUserId } : {}),
   });
   await setDoc(doc(db, "users", user.uid), { householdIds: arrayUnion(groupRef.id) }, { merge: true });
   return groupRef.id;
@@ -46,14 +48,24 @@ export async function createGroup(user: User, name: string): Promise<string> {
 
 export async function joinGroup(user: User, groupId: string): Promise<void> {
   const trimmedId = groupId.trim();
+  const splitwiseUserId = await getSplitwiseUserId(user.uid);
   await setDoc(doc(db, "households", trimmedId, "members", user.uid), {
     displayName: user.displayName ?? "",
     photoUrl: user.photoURL ?? "",
     email: user.email ?? "",
     role: "guest",
     addedAt: serverTimestamp(),
+    ...(splitwiseUserId ? { splitwiseUserId } : {}),
   });
   await setDoc(doc(db, "users", user.uid), { householdIds: arrayUnion(trimmedId) }, { merge: true });
+}
+
+// A user can be connected to Splitwise (users/{uid}.splitwise) before they
+// create/join a given household — without this, that household's member doc
+// would never get splitwiseUserId until the next refreshMemberSplitwiseId run.
+async function getSplitwiseUserId(uid: string): Promise<number | undefined> {
+  const userSnap = await getDoc(doc(db, "users", uid));
+  return userSnap.data()?.splitwise?.splitwiseUserId as number | undefined;
 }
 
 const LAST_GROUP_KEY = "splitly_last_group_id";
@@ -284,6 +296,24 @@ export async function refreshMemberPhotoUrl(uid: string, photoURL: string): Prom
   await Promise.all(
     householdIds.map((hid) =>
       updateDoc(doc(db, "households", hid, "members", uid), { photoUrl: photoURL }).catch(() => {}),
+    ),
+  );
+}
+
+// Mirrors the user's Splitwise ID (users/{uid}.splitwise.splitwiseUserId) onto
+// every household member doc they belong to. Called on every login so a
+// household joined/created *after* connecting Splitwise (or one that missed
+// the callback's one-time mirror) self-heals instead of staying permanently
+// "not linked" — same pattern as refreshMemberPhotoUrl above.
+export async function refreshMemberSplitwiseId(uid: string): Promise<void> {
+  const userSnap = await getDoc(doc(db, "users", uid));
+  const data = userSnap.data();
+  const splitwiseUserId = data?.splitwise?.splitwiseUserId as number | undefined;
+  if (!splitwiseUserId) return;
+  const householdIds: string[] = data?.householdIds ?? [];
+  await Promise.all(
+    householdIds.map((hid) =>
+      updateDoc(doc(db, "households", hid, "members", uid), { splitwiseUserId }).catch(() => {}),
     ),
   );
 }

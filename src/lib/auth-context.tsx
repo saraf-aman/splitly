@@ -3,7 +3,7 @@
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "./firebase";
-import { refreshMemberPhotoUrl } from "./group";
+import { refreshMemberPhotoUrl, refreshMemberSplitwiseId } from "./group";
 
 type AuthContextValue = {
   user: User | null;
@@ -22,6 +22,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       if (firebaseUser?.photoURL) {
         void refreshMemberPhotoUrl(firebaseUser.uid, firebaseUser.photoURL);
+      }
+      if (firebaseUser) {
+        void refreshMemberSplitwiseId(firebaseUser.uid);
       }
     });
   }, []);
