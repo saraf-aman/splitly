@@ -9,6 +9,13 @@ export interface UserDoc {
     accessToken: string;
     splitwiseUserId: number;
   };
+  // Device push tokens, centralized here (not per-household) since a token
+  // isn't household-specific and nothing in the UI reads another member's
+  // token — notify routes read it via the Admin SDK, which bypasses rules
+  // anyway. Used to live duplicated on every households/{id}/members/{uid}
+  // doc; that required fanning writes out to every household on every grant,
+  // which is exactly the bug that motivated centralizing it (2026-07-28).
+  fcmTokens?: Record<string, string>; // deviceId → FCM token
 }
 
 // households/{groupId}
@@ -26,7 +33,6 @@ export interface Member {
   photoUrl: string;
   email: string;
   role: Role;
-  fcmTokens: Record<string, string>; // deviceId → FCM token; one entry per browser context
   addedAt: Timestamp;
   splitwiseUserId?: number; // set by self-connect (via OAuth callback); persists across disconnect; admin cannot overwrite
   splitwiseEmail?: string;  // admin-set alternate Splitwise email, only used when splitwiseUserId is absent

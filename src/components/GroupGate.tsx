@@ -25,9 +25,8 @@ export function GroupGate({ children }: { children: React.ReactNode }) {
   // This means removal is detected per-group rather than globally.
   const membership = useMembershipStatus(viewedGroupId, user?.uid);
 
-  // FCM tokens are stored per-household on member docs, so the hook fans the
-  // same device token out to every household the user belongs to.
-  useNotificationSetup(user?.uid, groupIds);
+  // FCM tokens live on users/{uid} — a single write covers every household.
+  useNotificationSetup(user?.uid);
 
   // Backfill email field on all member docs (added after initial release).
   const idsKey = groupIds.join(",");

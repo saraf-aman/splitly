@@ -49,20 +49,24 @@ export async function POST(req: NextRequest) {
     .collection("members")
     .get();
 
-  // Collect FCM tokens from participants only, except the uploader.
-  // fcmTokens is a deviceId→token map — one entry per browser context,
-  // so each physical device only appears once.
-  const tokens: string[] = [];
-  // token → { memberId, deviceId } so we can remove stale entries by field path.
-  const tokenMeta = new Map<string, { memberId: string; deviceId: string }>();
+  const recipientIds = membersSnap.docs
+    .map((d) => d.id)
+    .filter((id) => id !== uploaderUid && (!participantIds || participantIds.includes(id)));
 
-  for (const memberDoc of membersSnap.docs) {
-    if (memberDoc.id === uploaderUid) continue;
-    if (participantIds && !participantIds.includes(memberDoc.id)) continue;
-    const fcmTokens = (memberDoc.data().fcmTokens ?? {}) as Record<string, string>;
+  // FCM tokens live on users/{uid} (Phase 12.2 follow-up), not the household
+  // member doc — one extra read per recipient, trivial at this app's scale.
+  const tokens: string[] = [];
+  // token → { uid, deviceId } so we can remove stale entries by field path.
+  const tokenMeta = new Map<string, { uid: string; deviceId: string }>();
+
+  const userSnaps = await Promise.all(
+    recipientIds.map((id) => adminDb.collection("users").doc(id).get()),
+  );
+  for (const userSnap of userSnaps) {
+    const fcmTokens = (userSnap.data()?.fcmTokens ?? {}) as Record<string, string>;
     for (const [deviceId, token] of Object.entries(fcmTokens)) {
       tokens.push(token);
-      tokenMeta.set(token, { memberId: memberDoc.id, deviceId });
+      tokenMeta.set(token, { uid: userSnap.id, deviceId });
     }
   }
 
@@ -106,10 +110,8 @@ export async function POST(req: NextRequest) {
       if (meta) {
         staleUpdates.push(
           adminDb
-            .collection("households")
-            .doc(groupId)
-            .collection("members")
-            .doc(meta.memberId)
+            .collection("users")
+            .doc(meta.uid)
             .update({ [`fcmTokens.${meta.deviceId}`]: FieldValue.delete() }),
         );
       }

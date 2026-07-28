@@ -44,14 +44,10 @@ export async function POST(req: NextRequest) {
 
   const label = billName ? `"${billName}"` : "a bill";
 
-  const memberSnap = await adminDb
-    .collection("households")
-    .doc(groupId)
-    .collection("members")
-    .doc(memberUid)
-    .get();
+  // FCM tokens live on users/{uid} (Phase 12.2 follow-up), not the household member doc.
+  const userSnap = await adminDb.collection("users").doc(memberUid).get();
 
-  const fcmTokens = (memberSnap.data()?.fcmTokens ?? {}) as Record<string, string>;
+  const fcmTokens = (userSnap.data()?.fcmTokens ?? {}) as Record<string, string>;
   const entries = Object.entries(fcmTokens);
   if (entries.length === 0) return NextResponse.json({ sent: 0 });
 
@@ -90,9 +86,7 @@ export async function POST(req: NextRequest) {
         if (token === staleToken) {
           staleUpdates.push(
             adminDb
-              .collection("households")
-              .doc(groupId)
-              .collection("members")
+              .collection("users")
               .doc(memberUid)
               .update({ [`fcmTokens.${deviceId}`]: FieldValue.delete() }),
           );
