@@ -237,6 +237,11 @@ export default function SelectItemsPage() {
                 console.log("[confirm] uid:", uid, "billId:", billId, "items:", items.length);
                 try {
                   await confirmSelections(billId, uid, items);
+                  void fetch("/api/notify-bill-complete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ billId, groupId }),
+                  }).catch(() => {});
                   router.push(`/groups/${groupId}/bills/${billId}/grid`);
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : String(e);

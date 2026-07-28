@@ -200,6 +200,11 @@ export default function GridPage() {
       }
       if (Object.keys(diff).length > 0) {
         await updateMemberSettleStates(billId, diff);
+        void fetch("/api/notify-bill-complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ billId, groupId: bill!.householdId }),
+        }).catch(() => {});
         if (changes.length > 0) {
           const ownerName = members.find((m) => m.id === uid)?.displayName ?? "The bill owner";
           void fetch("/api/notify-settle", {

@@ -73,6 +73,10 @@ export interface Bill {
   // Optional for backward compat with bills created before Phase 12.1 — treat
   // a missing value as "every household member" everywhere it's read.
   participantIds?: string[];
+  // Set once the "everyone's made their picks" push has been sent to the
+  // uploader (Phase 12.4) — guards against sending it more than once per bill,
+  // even if a member is later un-settled and re-confirms.
+  completionNotifiedAt?: Timestamp;
 }
 
 // bills/{billId}/items/{itemId}
