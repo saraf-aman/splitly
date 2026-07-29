@@ -25,6 +25,10 @@ export interface Group {
   createdBy: string; // userId of the creator — lets Firestore rules bootstrap the first admin member
   splitwiseGroupId?: number;
   splitwiseGroupName?: string;
+  // How long settled bills stay visible in the home feed before being hidden
+  // (client-side) / eventually deleted (Phase 12.11 cron). null/undefined =
+  // forever. Creator-only setting (firestore.rules), changeable in Manage.
+  retentionMonths?: number | null;
 }
 
 // households/{groupId}/members/{userId}

@@ -23,12 +23,14 @@ const SECTION_META: Record<Section, { label: string; stripe: string; pill: strin
   settled:  { label: "Settled",           stripe: "#16A34A", pill: "#F0FDF4", pillText: "#15803D" },
 };
 
-const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-
-function isSettledAndOld(bill: Bill & { id: string }): boolean {
+// Phase 12.10: retention is per-group (`Group.retentionMonths`), set by the
+// creator in Manage — null/undefined means keep settled bills forever.
+function isSettledAndOld(bill: Bill & { id: string }, retentionMonths: number | null | undefined): boolean {
+  if (!retentionMonths) return false;
   const ts = bill.createdAt;
   if (!ts) return false;
-  return Date.now() - ts.toMillis() > ONE_MONTH_MS;
+  const retentionMs = retentionMonths * 30 * 24 * 60 * 60 * 1000;
+  return Date.now() - ts.toMillis() > retentionMs;
 }
 
 function getSection(bill: Bill & { id: string }, uid: string, memberIds: string[]): Section {
@@ -332,7 +334,7 @@ export default function GroupHomePage() {
       s,
       bills.filter((b) => {
         if (getSection(b, uid, billMemberIds(b)) !== s) return false;
-        if (s === "settled" && isSettledAndOld(b)) return false;
+        if (s === "settled" && isSettledAndOld(b, group?.retentionMonths)) return false;
         return true;
       }),
     ])

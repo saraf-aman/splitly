@@ -53,7 +53,7 @@ service cloud.firestore {
       allow update: if isHouseholdAdmin(householdId) &&
         (
           !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['splitwiseGroupId', 'splitwiseGroupName']) ||
+            .hasAny(['splitwiseGroupId', 'splitwiseGroupName', 'retentionMonths']) ||
           isHouseholdCreator(householdId)
         );
       // Deleting the whole household (wiping all members/bills/data) is

@@ -10,6 +10,7 @@ import {
   removeMember,
   updateMemberRole,
   setMemberSplitwiseEmail,
+  updateGroupRetention,
   useGroup,
   useMembers,
 } from "@/lib/group";
@@ -28,6 +29,14 @@ import {
 } from "@/components/ui/select";
 
 // ─── SW status chip ────────────────────────────────────────────────────────────
+
+const RETENTION_LABELS: Record<string, string> = {
+  "1": "1 month",
+  "3": "3 months",
+  "6": "6 months",
+  "12": "12 months",
+  never: "Never",
+};
 
 function SwStatusChip({ linked }: { linked: boolean }) {
   if (linked) {
@@ -55,6 +64,7 @@ export default function GroupManagePage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [retentionSaving, setRetentionSaving] = useState(false);
 
   // splitwiseEmail inputs: memberId → current text in the input
   const [swEmailInputs, setSwEmailInputs] = useState<Record<string, string>>({});
@@ -105,6 +115,16 @@ export default function GroupManagePage() {
       await deleteGroup(groupId, group!.createdBy);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleRetentionChange(value: string | null) {
+    if (!value) return;
+    setRetentionSaving(true);
+    try {
+      await updateGroupRetention(groupId, value === "never" ? null : Number(value));
+    } finally {
+      setRetentionSaving(false);
     }
   }
 
@@ -290,6 +310,38 @@ export default function GroupManagePage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── Bill retention (creator-only) ── */}
+      {isCreator && (
+        <div className="flex flex-col gap-1">
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Bill retention
+          </p>
+          <Card>
+            <CardContent className="flex flex-col gap-2">
+              <p className="text-caption text-muted-foreground">
+                Settled bills older than this are hidden from the home feed.
+              </p>
+              <Select
+                value={group.retentionMonths ? String(group.retentionMonths) : "never"}
+                disabled={retentionSaving}
+                onValueChange={handleRetentionChange}
+              >
+                <SelectTrigger size="sm" className="h-9 w-full text-sm">
+                  <SelectValue>{(value: string) => RETENTION_LABELS[value] ?? value}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 month</SelectItem>
+                  <SelectItem value="3">3 months</SelectItem>
+                  <SelectItem value="6">6 months</SelectItem>
+                  <SelectItem value="12">12 months</SelectItem>
+                  <SelectItem value="never">Never</SelectItem>
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
         </div>
       )}
 
