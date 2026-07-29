@@ -80,6 +80,10 @@ export interface Bill {
   // Reminder-nudge state (Phase 12.5), keyed by not-yet-confirmed participant
   // uid. Read/written only by the reminder cron via the Admin SDK.
   reminders?: Record<string, { count: number; lastSentAt: Timestamp }>;
+  // Set by the uploader's manual per-member remind icon (Phase 12.6), keyed
+  // by the reminded member's uid — gates that member's icon to once per 24h,
+  // independent of the reminders map above.
+  manualReminderSentAt?: Record<string, Timestamp>;
 }
 
 // bills/{billId}/items/{itemId}

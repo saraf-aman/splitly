@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, Lock, Pencil, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bell, Check, ChevronRight, Lock, Pencil, Users, X } from "lucide-react";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges, updateMemberSettleStates, setBillParticipants } from "@/lib/bills";
@@ -30,6 +30,13 @@ type SwDialog =
   | "resolver"
   | "pushing"
   | "error";
+
+const REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+function getReminderCooldownRemainingMs(lastManualReminderAt: { toMillis(): number } | undefined): number {
+  if (!lastManualReminderAt) return 0;
+  return Math.max(0, REMINDER_COOLDOWN_MS - (Date.now() - lastManualReminderAt.toMillis()));
+}
 
 export default function GridPage() {
   const { groupId, billId } = useParams<{ groupId: string; billId: string }>();
@@ -63,6 +70,10 @@ export default function GridPage() {
   const [participantStates, setParticipantStates] = useState<Record<string, boolean>>({});
   const [participantSaving, setParticipantSaving] = useState(false);
   const [blockedMemberName, setBlockedMemberName] = useState<string | null>(null);
+
+  // Manual per-member remind icon, inside the settle sheet (Phase 12.6)
+  const [remindingUid, setRemindingUid] = useState<string | null>(null);
+  const [remindErrors, setRemindErrors] = useState<Record<string, string>>({});
 
   const loading = billLoading || itemsLoading || chargesLoading;
   const uid = user?.uid ?? "";
@@ -223,6 +234,39 @@ export default function GridPage() {
       setSettleSheetOpen(false);
     } finally {
       setSettleSaving(false);
+    }
+  }
+
+  // ── Manual remind, per member (Phase 12.6) ──────────────────────────────────
+
+  async function handleRemindMember(memberId: string) {
+    if (remindingUid) return;
+    setRemindingUid(memberId);
+    setRemindErrors((prev) => {
+      const next = { ...prev };
+      delete next[memberId];
+      return next;
+    });
+    try {
+      const idToken = await user!.getIdToken();
+      const res = await fetch("/api/remind-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ billId, targetUid: memberId }),
+      });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        throw new Error(
+          data.error === "cooldown" ? "Already reminded in the last 24h" : (data.error ?? "Failed to send"),
+        );
+      }
+    } catch (e) {
+      setRemindErrors((prev) => ({
+        ...prev,
+        [memberId]: e instanceof Error ? e.message : "Failed to send",
+      }));
+    } finally {
+      setRemindingUid(null);
     }
   }
 
@@ -592,28 +636,56 @@ export default function GridPage() {
 
             {/* Per-member rows */}
             <div className="flex flex-col gap-2 mb-5">
-              {orderedMembers.map((m) => (
-                <label key={m.id} className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="size-5 shrink-0 cursor-pointer accent-primary"
-                    checked={settleStates[m.id] ?? false}
-                    onChange={(e) =>
-                      setSettleStates((prev) => ({ ...prev, [m.id]: e.target.checked }))
-                    }
-                  />
-                  <MemberAvatar member={m} size={28} ring="transparent" />
-                  <span className="flex-1 text-body text-foreground">
-                    {m.displayName}
-                    {m.id === uid && (
-                      <span className="ml-1.5 text-caption text-muted-foreground">(you)</span>
+              {orderedMembers.map((m) => {
+                const confirmed = confirmedBy[m.id];
+                const remindCooldownMs = getReminderCooldownRemainingMs(bill!.manualReminderSentAt?.[m.id]);
+                const canRemind = !confirmed && m.id !== uid;
+                return (
+                  <div key={m.id} className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-3">
+                      <label className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="size-5 shrink-0 cursor-pointer accent-primary"
+                          checked={settleStates[m.id] ?? false}
+                          onChange={(e) =>
+                            setSettleStates((prev) => ({ ...prev, [m.id]: e.target.checked }))
+                          }
+                        />
+                        <MemberAvatar member={m} size={28} ring="transparent" />
+                        <span className="flex-1 truncate text-body text-foreground">
+                          {m.displayName}
+                          {m.id === uid && (
+                            <span className="ml-1.5 text-caption text-muted-foreground">(you)</span>
+                          )}
+                        </span>
+                      </label>
+                      {confirmed && (
+                        <span className="shrink-0 text-caption text-primary">confirmed</span>
+                      )}
+                      {canRemind && (
+                        <button
+                          type="button"
+                          className="flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-1 text-caption text-muted-foreground hover:bg-secondary active:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                          onClick={() => handleRemindMember(m.id)}
+                          disabled={remindingUid === m.id || remindCooldownMs > 0}
+                          aria-label={`Remind ${m.displayName}`}
+                        >
+                          <Bell className="size-3.5" />
+                          {remindingUid === m.id
+                            ? "Sending…"
+                            : remindCooldownMs > 0
+                            ? `${Math.ceil(remindCooldownMs / (60 * 60 * 1000))}h`
+                            : "Remind"}
+                        </button>
+                      )}
+                    </div>
+                    {remindErrors[m.id] && (
+                      <p className="pl-11 text-xs text-destructive">{remindErrors[m.id]}</p>
                     )}
-                  </span>
-                  {confirmedBy[m.id] && (
-                    <span className="text-caption text-primary">confirmed</span>
-                  )}
-                </label>
-              ))}
+                  </div>
+                );
+              })}
             </div>
 
             <Button
