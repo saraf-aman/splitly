@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { Camera, Hourglass, Loader2, Trash2, CheckCircle2 } from "lucide-react";
+import { Camera, ChevronDown, Hourglass, Loader2, Trash2, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useGroup, useMembers } from "@/lib/group";
 import { useGroupBills } from "@/lib/bills";
@@ -284,6 +284,26 @@ export default function GroupHomePage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Section collapse is a personal view preference, not data worth syncing
+  // across devices — kept in localStorage, keyed per group. Lazy-initialized
+  // (not an effect) since groupId is already known synchronously from the
+  // route on first render, and the page remounts when it changes.
+  const [collapsedSections, setCollapsedSections] = useState<Set<Section>>(() => {
+    if (typeof window === "undefined" || !groupId) return new Set();
+    const stored = localStorage.getItem(`splitly_collapsed_sections_${groupId}`);
+    return new Set(stored ? (JSON.parse(stored) as Section[]) : []);
+  });
+
+  function toggleSection(section: Section) {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      localStorage.setItem(`splitly_collapsed_sections_${groupId}`, JSON.stringify([...next]));
+      return next;
+    });
+  }
+
   async function handleDeleteConfirm() {
     if (!deletingBill || !user) return;
     setDeleteLoading(true);
@@ -398,20 +418,34 @@ export default function GroupHomePage() {
         {!loading && hasBills && sections.map((section) => {
           const sectionBills = grouped[section];
           if (sectionBills.length === 0) return null;
+          const isCollapsed = collapsedSections.has(section);
           return (
             <div key={section} className="flex flex-col gap-3">
-              <p
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "#9CA3AF",
-                }}
+              <button
+                type="button"
+                onClick={() => toggleSection(section)}
+                className="flex items-center gap-1.5"
+                aria-expanded={!isCollapsed}
               >
-                {SECTION_META[section].label}
-              </p>
-              {sectionBills.map((bill) => (
+                <ChevronDown
+                  size={13}
+                  color="#9CA3AF"
+                  className="transition-transform"
+                  style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+                />
+                <p
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#9CA3AF",
+                  }}
+                >
+                  {SECTION_META[section].label} ({sectionBills.length})
+                </p>
+              </button>
+              {!isCollapsed && sectionBills.map((bill) => (
                 <BillCard
                   key={bill.id}
                   bill={bill}

@@ -37,6 +37,9 @@ export async function createGroup(user: User, name: string): Promise<string> {
     // Phase 14 tier-3 currency fallback — only relevant for this household's
     // very first bill. Editable later from Manage if it guesses wrong.
     defaultCurrency: detectDeviceCurrency(),
+    // Default bill retention for new groups, per user direction. Creator can
+    // change it later from Manage.
+    retentionMonths: 6,
   });
   await setDoc(doc(groupRef, "members", user.uid), {
     displayName: user.displayName ?? "",
