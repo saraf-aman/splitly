@@ -77,6 +77,9 @@ export interface Bill {
   // uploader (Phase 12.4) — guards against sending it more than once per bill,
   // even if a member is later un-settled and re-confirms.
   completionNotifiedAt?: Timestamp;
+  // Reminder-nudge state (Phase 12.5), keyed by not-yet-confirmed participant
+  // uid. Read/written only by the reminder cron via the Admin SDK.
+  reminders?: Record<string, { count: number; lastSentAt: Timestamp }>;
 }
 
 // bills/{billId}/items/{itemId}
