@@ -29,6 +29,10 @@ export interface Group {
   // (client-side) / eventually deleted (Phase 12.11 cron). null/undefined =
   // forever. Creator-only setting (firestore.rules), changeable in Manage.
   retentionMonths?: number | null;
+  // Phase 14 — ISO 4217 code, set once at household creation from the
+  // creator's device locale. Tier-3 fallback when a new bill has no Gemini
+  // guess and this household has no prior bill yet (see currency.ts).
+  defaultCurrency?: string;
 }
 
 // households/{groupId}/members/{userId}
@@ -88,6 +92,13 @@ export interface Bill {
   // by the reminded member's uid — gates that member's icon to once per 24h,
   // independent of the reminders map above.
   manualReminderSentAt?: Record<string, Timestamp>;
+  // Phase 14 — ISO 4217 code, resolved at creation (Gemini guess -> household's
+  // last bill -> household default -> "USD") and editable on the review screen
+  // until Confirm, after which it's fixed for the bill's lifetime. Optional
+  // for backward compat with bills created before Phase 14 — treat a missing
+  // value as "USD" everywhere it's read (matches the app's implicit behavior
+  // before multi-currency existed).
+  currency?: string;
 }
 
 // bills/{billId}/items/{itemId}

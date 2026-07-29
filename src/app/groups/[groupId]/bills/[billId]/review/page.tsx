@@ -11,27 +11,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loading } from "@/components/Loading";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  COMMON_CURRENCIES,
+  decimalStringToMinorUnits,
+  formatCurrencyOption,
+  formatDecimalBlur,
+  getCurrencySymbol,
+  minorUnitsToDecimalString,
+} from "@/lib/currency";
 
 interface EditableItem {
   id: string;
   name: string;
   priceStr: string;
   lowConfidence: boolean;
-}
-
-function centsToDollars(cents: number | null | undefined): string {
-  if (cents == null) return "";
-  return (cents / 100).toFixed(2);
-}
-
-function dollarsToCents(str: string): number {
-  const n = parseFloat(str);
-  return isNaN(n) ? 0 : Math.round(n * 100);
-}
-
-function formatBlur(str: string): string {
-  const n = parseFloat(str);
-  return isNaN(n) ? "0.00" : n.toFixed(2);
 }
 
 export default function ReviewBillPage() {
@@ -45,6 +39,7 @@ export default function ReviewBillPage() {
   const [taxStr, setTaxStr] = useState("");
   const [tipStr, setTipStr] = useState("");
   const [serviceStr, setServiceStr] = useState("");
+  const [currency, setCurrency] = useState("USD");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,18 +52,20 @@ export default function ReviewBillPage() {
       .then((b) => {
         if (b) {
           setBill(b);
+          const billCurrency = b.currency ?? "USD";
+          setCurrency(billCurrency);
           setItems(
             b.parsedResult.items.map((item, i) => ({
               id: `${uid}-${i}`,
               name: item.name,
-              priceStr: centsToDollars(item.price),
+              priceStr: minorUnitsToDecimalString(item.price, billCurrency),
               lowConfidence: item.lowConfidence,
             }))
           );
           setCounter(b.parsedResult.items.length);
-          setTaxStr(centsToDollars(b.parsedResult.tax));
-          setTipStr(centsToDollars(b.parsedResult.tip));
-          setServiceStr(centsToDollars(b.parsedResult.serviceCharge));
+          setTaxStr(minorUnitsToDecimalString(b.parsedResult.tax, billCurrency));
+          setTipStr(minorUnitsToDecimalString(b.parsedResult.tip, billCurrency));
+          setServiceStr(minorUnitsToDecimalString(b.parsedResult.serviceCharge, billCurrency));
         }
         setLoading(false);
       })
@@ -89,7 +86,7 @@ export default function ReviewBillPage() {
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { id: `${uid}-new-${counter}`, name: "", priceStr: "0.00", lowConfidence: false },
+      { id: `${uid}-new-${counter}`, name: "", priceStr: minorUnitsToDecimalString(0, currency), lowConfidence: false },
     ]);
     setCounter((c) => c + 1);
   }
@@ -101,19 +98,19 @@ export default function ReviewBillPage() {
     try {
       const confirmedItems = items.map((it) => ({
         name: it.name.trim() || "Item",
-        price: dollarsToCents(it.priceStr),
+        price: decimalStringToMinorUnits(it.priceStr, currency),
         lowConfidence: it.lowConfidence,
       }));
 
       const charges: { type: "tax" | "tip" | "service_charge"; amount: number }[] = [];
-      if (taxStr && dollarsToCents(taxStr) > 0)
-        charges.push({ type: "tax", amount: dollarsToCents(taxStr) });
-      if (tipStr && dollarsToCents(tipStr) > 0)
-        charges.push({ type: "tip", amount: dollarsToCents(tipStr) });
-      if (serviceStr && dollarsToCents(serviceStr) > 0)
-        charges.push({ type: "service_charge", amount: dollarsToCents(serviceStr) });
+      if (taxStr && decimalStringToMinorUnits(taxStr, currency) > 0)
+        charges.push({ type: "tax", amount: decimalStringToMinorUnits(taxStr, currency) });
+      if (tipStr && decimalStringToMinorUnits(tipStr, currency) > 0)
+        charges.push({ type: "tip", amount: decimalStringToMinorUnits(tipStr, currency) });
+      if (serviceStr && decimalStringToMinorUnits(serviceStr, currency) > 0)
+        charges.push({ type: "service_charge", amount: decimalStringToMinorUnits(serviceStr, currency) });
 
-      await confirmBill(billId, confirmedItems, charges);
+      await confirmBill(billId, confirmedItems, charges, currency);
       if (bill.uploadedBy && bill.householdId) {
         fetch("/api/notify-bill-open", {
           method: "POST",
@@ -199,13 +196,34 @@ export default function ReviewBillPage() {
           Home
         </Link>
 
-        <div className="mb-4">
-          <h1 className="text-heading text-foreground">
-            {bill.restaurantOrStoreName ?? "Review receipt"}
-          </h1>
-          <p className="text-caption text-muted-foreground mt-0.5">
-            Edit items if anything looks wrong, then confirm.
-          </p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-heading text-foreground">
+              {bill.restaurantOrStoreName ?? "Review receipt"}
+            </h1>
+            <p className="text-caption text-muted-foreground mt-0.5">
+              Edit items if anything looks wrong, then confirm.
+            </p>
+          </div>
+          <Select value={currency} onValueChange={(value) => value && setCurrency(value)}>
+            <SelectTrigger size="sm" className="shrink-0">
+              <SelectValue>{(value: string) => formatCurrencyOption(value)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {/* Gemini can detect a currency outside this common-list shortcut
+                  (e.g. a less common one) — surface it too so the trigger never
+                  shows a value with no matching item. */}
+              {(
+                (COMMON_CURRENCIES as readonly string[]).includes(currency)
+                  ? COMMON_CURRENCIES
+                  : [currency, ...COMMON_CURRENCIES]
+              ).map((code) => (
+                <SelectItem key={code} value={code}>
+                  {formatCurrencyOption(code)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -236,14 +254,14 @@ export default function ReviewBillPage() {
                 />
                 <div className="relative w-24 shrink-0">
                   <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    $
+                    {getCurrencySymbol(currency)}
                   </span>
                   <Input
                     className="h-9 pl-5 pr-2 font-money text-right text-sm"
                     value={item.priceStr}
                     inputMode="decimal"
                     onChange={(e) => updateItem(item.id, { priceStr: e.target.value })}
-                    onBlur={(e) => updateItem(item.id, { priceStr: formatBlur(e.target.value) })}
+                    onBlur={(e) => updateItem(item.id, { priceStr: formatDecimalBlur(e.target.value, currency) })}
                   />
                 </div>
                 <Button
@@ -287,7 +305,7 @@ export default function ReviewBillPage() {
               <span className="text-body text-foreground w-32 shrink-0">{label}</span>
               <div className="relative w-28">
                 <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  $
+                  {getCurrencySymbol(currency)}
                 </span>
                 <Input
                   className="h-9 pl-5 pr-2 font-money text-right text-sm"
@@ -295,7 +313,7 @@ export default function ReviewBillPage() {
                   placeholder="—"
                   inputMode="decimal"
                   onChange={(e) => onChange(e.target.value)}
-                  onBlur={(e) => onChange(e.target.value ? formatBlur(e.target.value) : "")}
+                  onBlur={(e) => onChange(e.target.value ? formatDecimalBlur(e.target.value, currency) : "")}
                 />
               </div>
             </div>

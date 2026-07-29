@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { User } from "firebase/auth";
-import { addDoc, collection, deleteField, doc, getDoc, onSnapshot, orderBy, query, updateDoc, where, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, updateDoc, where, writeBatch, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import type { Bill, BillItem, ParsedReceipt, SharedCharge, SharedChargeType } from "@/types/firestore";
 
 type ParsedBill = ParsedReceipt & {
   restaurantOrStoreName: string | null;
   billDate: string | null;
+  currency: string | null; // Phase 14 — Gemini's raw guess; null for manual entry or if undetectable
 };
 
 const MAX_DIMENSION = 1600;
@@ -119,7 +120,8 @@ export interface ConfirmCharge {
 export async function confirmBill(
   billId: string,
   items: ConfirmItem[],
-  charges: ConfirmCharge[]
+  charges: ConfirmCharge[],
+  currency: string,
 ): Promise<void> {
   const batch = writeBatch(db);
 
@@ -133,7 +135,16 @@ export async function confirmBill(
     batch.set(doc(chargesRef), charge);
   }
 
-  batch.update(doc(db, "bills", billId), { status: "open" });
+  // parsedResult.total is recomputed from the actual confirmed items/charges,
+  // not left as Gemini's original guess — it stays null forever for manual
+  // entry (no Gemini call), and goes stale for any AI-parsed bill whose items
+  // were edited during review. The home feed's bill card total reads this
+  // field, so a stale/null value there hides the amount entirely.
+  const total = items.reduce((sum, item) => sum + item.price, 0) + charges.reduce((sum, c) => sum + c.amount, 0);
+
+  // currency is re-written here (not just at createBill) because the review
+  // screen lets the uploader change the picker right up until Confirm.
+  batch.update(doc(db, "bills", billId), { status: "open", currency, "parsedResult.total": total });
 
   await batch.commit();
 }
@@ -223,13 +234,34 @@ export function useGroupBills(groupId: string | null, uid: string | null) {
   return { bills, loading };
 }
 
+// Phase 14 currency fallback chain, tiers 2-3 (tier 1, Gemini's own guess, is
+// already on `parsed.currency` by the time this runs; tier 4, "USD", is the
+// final default below). Not called for manual entry's tier-1-less path only
+// in the sense that it's the same fallback either way.
+async function resolveDefaultCurrency(groupId: string): Promise<string> {
+  const recentSnap = await getDocs(
+    query(
+      collection(db, "bills"),
+      where("householdId", "==", groupId),
+      orderBy("createdAt", "desc"),
+      limit(1),
+    ),
+  );
+  const recentCurrency = recentSnap.docs[0]?.data()?.currency as string | undefined;
+  if (recentCurrency) return recentCurrency;
+
+  const groupSnap = await getDoc(doc(db, "households", groupId));
+  return (groupSnap.data()?.defaultCurrency as string | undefined) ?? "USD";
+}
+
 export async function createBill(
   user: User,
   groupId: string,
   parsed: ParsedBill,
   participantIds: string[],
 ): Promise<string> {
-  const { restaurantOrStoreName, billDate, ...parsedResult } = parsed;
+  const { restaurantOrStoreName, billDate, currency: parsedCurrency, ...parsedResult } = parsed;
+  const currency = parsedCurrency ?? (await resolveDefaultCurrency(groupId));
   const billRef = await addDoc(collection(db, "bills"), {
     householdId: groupId,
     uploadedBy: user.uid,
@@ -238,6 +270,7 @@ export async function createBill(
     status: "pending_review",
     createdAt: serverTimestamp(),
     parsedResult,
+    currency,
     // Uploader must always be able to see/act on their own bill.
     participantIds: participantIds.includes(user.uid) ? participantIds : [...participantIds, user.uid],
   });

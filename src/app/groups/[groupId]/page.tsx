@@ -9,7 +9,7 @@ import { useGroup, useMembers } from "@/lib/group";
 import { useGroupBills } from "@/lib/bills";
 import { useSplitwiseStatus } from "@/lib/splitwise";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
-import { formatCents } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 import { NotificationBanner } from "@/components/NotificationBanner";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import type { Bill, Member } from "@/types/firestore";
@@ -145,7 +145,7 @@ function BillCard({
               lineHeight: 1.1,
             }}
           >
-            {formatCents(total)}
+            {formatMoney(total, bill.currency ?? "USD")}
           </span>
         )}
 

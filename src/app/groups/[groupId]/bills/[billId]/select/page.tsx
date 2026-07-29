@@ -11,7 +11,7 @@ import type { SharedChargeType } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loading } from "@/components/Loading";
-import { formatCents } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 
 const CHARGE_LABELS: Record<SharedChargeType, string> = {
   tax: "Tax",
@@ -163,7 +163,7 @@ export default function SelectItemsPage() {
                     {item.name}
                   </span>
                   <span className="w-16 text-right font-money text-sm text-muted-foreground tabular-nums">
-                    {formatCents(item.price)}
+                    {formatMoney(item.price, bill?.currency ?? "USD")}
                   </span>
                   <button
                     className={`relative flex size-8 shrink-0 items-center justify-center rounded transition-opacity ${
@@ -200,7 +200,7 @@ export default function SelectItemsPage() {
                       {CHARGE_LABELS[charge.type]}
                     </span>
                     <span className="w-16 text-right font-money text-sm text-muted-foreground tabular-nums">
-                      {formatCents(charge.amount)}
+                      {formatMoney(charge.amount, bill?.currency ?? "USD")}
                     </span>
                     <span className="w-8 shrink-0" />
                   </CardContent>

@@ -20,6 +20,7 @@ import {
 import { useEffect, useState } from "react";
 import { db } from "./firebase";
 import { useAuth } from "./auth-context";
+import { detectDeviceCurrency } from "./currency";
 import type { Group, Member, Role } from "@/types/firestore";
 
 // Group creation is 3 sequential writes, not a batch: the member-doc
@@ -33,6 +34,9 @@ export async function createGroup(user: User, name: string): Promise<string> {
     name,
     createdAt: serverTimestamp(),
     createdBy: user.uid,
+    // Phase 14 tier-3 currency fallback — only relevant for this household's
+    // very first bill. Editable later from Manage if it guesses wrong.
+    defaultCurrency: detectDeviceCurrency(),
   });
   await setDoc(doc(groupRef, "members", user.uid), {
     displayName: user.displayName ?? "",

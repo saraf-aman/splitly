@@ -12,7 +12,7 @@ import { useSplitwiseStatus } from "@/lib/splitwise";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/Loading";
-import { formatCents } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 import { calculateSplit, allocateEqually, getActiveParticipants } from "@/lib/splitCalc";
 import type { SharedChargeType } from "@/types/firestore";
 
@@ -482,7 +482,7 @@ export default function GridPage() {
                           {item.name}
                         </span>
                         <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                          {formatCents(item.price)}
+                          {formatMoney(item.price, bill?.currency ?? "USD")}
                         </span>
                       </div>
                     </td>
@@ -554,7 +554,7 @@ export default function GridPage() {
                           </span>
                         </div>
                         <span className="font-mono text-xs text-muted-foreground/60 tabular-nums">
-                          {formatCents(charge.amount)}
+                          {formatMoney(charge.amount, bill?.currency ?? "USD")}
                         </span>
                       </td>
                       {orderedMembers.map((m) => (
@@ -562,7 +562,7 @@ export default function GridPage() {
                           key={m.id}
                           className="px-2 py-2.5 text-center font-mono text-xs text-muted-foreground tabular-nums"
                         >
-                          {formatCents(alloc[m.id] ?? 0)}
+                          {formatMoney(alloc[m.id] ?? 0, bill?.currency ?? "USD")}
                         </td>
                       ))}
                     </tr>
@@ -582,8 +582,8 @@ export default function GridPage() {
                   const display = !totals
                     ? "…"
                     : confirmed
-                    ? formatCents(total)
-                    : `~${formatCents(total)}`;
+                    ? formatMoney(total, bill?.currency ?? "USD")
+                    : `~${formatMoney(total, bill?.currency ?? "USD")}`;
                   return (
                     <td
                       key={m.id}
@@ -902,7 +902,7 @@ export default function GridPage() {
                       <span className="text-body text-foreground">{m.displayName.split(" ")[0]}</span>
                       {totals && (
                         <span className="ml-auto font-mono text-sm text-muted-foreground tabular-nums">
-                          {formatCents(totals[m.id] ?? 0)}
+                          {formatMoney(totals[m.id] ?? 0, bill?.currency ?? "USD")}
                         </span>
                       )}
                     </div>

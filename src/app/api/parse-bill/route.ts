@@ -12,28 +12,34 @@ const responseSchema = {
   properties: {
     restaurantOrStoreName: { type: Type.STRING, nullable: true },
     billDate: { type: Type.STRING, nullable: true, description: "ISO 8601 date, e.g. 2026-07-15" },
+    currency: {
+      type: Type.STRING,
+      nullable: true,
+      description: "ISO 4217 currency code detected from the receipt's symbol, printed code, store address, or language (e.g. USD, INR, EUR, JPY). Null if it truly cannot be determined.",
+    },
     items: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
           name: { type: Type.STRING },
-          price: { type: Type.NUMBER, description: "price in cents, e.g. $4.50 -> 450" },
+          price: { type: Type.NUMBER, description: "price in the receipt currency's smallest unit, e.g. $4.50 -> 450 cents; ¥450 -> 450 (JPY has no subdivision)" },
           lowConfidence: { type: Type.BOOLEAN, description: "true if this line was hard to read or ambiguous" },
         },
         required: ["name", "price", "lowConfidence"],
       },
     },
-    tax: { type: Type.NUMBER, nullable: true, description: "cents" },
-    tip: { type: Type.NUMBER, nullable: true, description: "cents" },
-    serviceCharge: { type: Type.NUMBER, nullable: true, description: "cents" },
-    total: { type: Type.NUMBER, nullable: true, description: "cents" },
+    tax: { type: Type.NUMBER, nullable: true, description: "smallest currency unit" },
+    tip: { type: Type.NUMBER, nullable: true, description: "smallest currency unit" },
+    serviceCharge: { type: Type.NUMBER, nullable: true, description: "smallest currency unit" },
+    total: { type: Type.NUMBER, nullable: true, description: "smallest currency unit" },
   },
-  required: ["restaurantOrStoreName", "billDate", "items", "tax", "tip", "serviceCharge", "total"],
+  required: ["restaurantOrStoreName", "billDate", "currency", "items", "tax", "tip", "serviceCharge", "total"],
 };
 
 const PROMPT = `You are extracting structured data from a photo of a grocery or restaurant receipt.
-Return every line item with its name and price. Prices must be integer cents (e.g. $4.50 becomes 450), never dollars or floats.
+Identify the receipt's currency from its symbol, printed code, store address, or language, and return it as an ISO 4217 code (e.g. USD, INR, EUR, JPY); null if it truly cannot be determined.
+Return every line item with its name and price. Prices must be integer amounts in that currency's smallest unit (e.g. $4.50 becomes 450 cents; ¥450 stays 450, since JPY has no subdivision), never decimals or floats.
 Separately identify tax, tip, and service charge amounts if present (null if not present on the receipt) — do not include them in the items list.
 Flag "lowConfidence": true on any item whose name or price was blurry, cut off, or otherwise uncertain.
 If the receipt has a store or restaurant name, include it; otherwise null. If a date is printed on the receipt, return it as an ISO 8601 date; otherwise null.`;

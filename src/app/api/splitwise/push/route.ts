@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApps, initializeApp, cert, type App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { calculateSplit } from "@/lib/splitCalc";
+import { minorUnitsToDecimalString } from "@/lib/currency";
 
 let adminApp: App | undefined;
 
@@ -38,10 +39,6 @@ async function verifyFirebaseIdToken(idToken: string): Promise<string | null> {
   return data.users?.[0]?.localId ?? null;
 }
 
-function centsToDecimal(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization") ?? "";
   const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
@@ -67,6 +64,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Bill not found" }, { status: 404 });
   }
   const bill = billSnap.data()!;
+  const currency = (bill.currency as string | undefined) ?? "USD";
   if (bill.uploadedBy !== uid) {
     return NextResponse.json({ error: "Only the bill uploader can push to Splitwise" }, { status: 403 });
   }
@@ -167,17 +165,17 @@ export async function POST(req: NextRequest) {
   }
 
   const params = new URLSearchParams({
-    cost: centsToDecimal(totalCents),
+    cost: minorUnitsToDecimalString(totalCents, currency),
     description: (bill.restaurantOrStoreName as string | null) ?? "Group expense",
     group_id: String(splitwiseGroupId),
-    currency_code: "USD",
+    currency_code: currency,
     split_equally: "false",
   });
 
   participants.forEach((m, i) => {
     const swId = resolved.get(m.uid)!;
-    const share = centsToDecimal(totals[m.uid] ?? 0);
-    const paid = swId === payerSwId ? centsToDecimal(totalCents) : "0.00";
+    const share = minorUnitsToDecimalString(totals[m.uid] ?? 0, currency);
+    const paid = swId === payerSwId ? minorUnitsToDecimalString(totalCents, currency) : minorUnitsToDecimalString(0, currency);
     params.set(`users__${i}__user_id`, String(swId));
     params.set(`users__${i}__paid_share`, paid);
     params.set(`users__${i}__owed_share`, share);

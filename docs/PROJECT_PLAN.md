@@ -429,3 +429,44 @@ bills/{billId}
     [userId]: { count: number, lastSentAt: timestamp }  // automated cron reminder state, per non-uploader participant
   }
 ```
+
+## 16. Multi-currency support (Phase 14)
+
+Motivated by a possible future Android distribution — households outside the US need bills in their own currency. Modeled on how Splitwise itself handles this: **currency lives on the expense (bill), not the group (household), and there is no conversion.** Splitwise's group-level "default currency" is purely a UI prefill for the next expense; balances across differing currencies are shown separately, never merged. This maps cleanly onto Splitly because bills are already self-contained with no cross-bill ledger (§10 non-goals) — there is no mixed-balance problem to solve.
+
+**Explicitly not building:** exchange-rate lookups, rate-locking, or any cross-currency conversion/aggregation. A household with bills in two currencies simply has bills in two currencies; nothing sums across them.
+
+### Determining a bill's currency
+
+Prefill chain, most-confident signal first — always shown in an editable picker on the review screen regardless of which tier filled it, never silently locked:
+
+1. **Gemini reads it off the receipt itself** (currency symbol/code, store locale) — added as a field on the existing structured-JSON parsing schema (Phase 2.2's call), no new API request.
+2. Falls back to the **household's most-recently-created bill's currency**.
+3. Falls back to `households/{householdId}.defaultCurrency` — only relevant for a household's very first bill.
+4. Hardcoded `"USD"` if nothing else resolves.
+
+`households/{householdId}.defaultCurrency` is set once, at household creation, derived from the creator's device locale (`navigator.language` region code, e.g. `en-IN` → `IN`) via a small static ISO-3166-region → ISO-4217-currency lookup table — no network call, no paid API, consistent with the $0-cost project goal (§11). Editable later from the manage-household screen if wrong. Computed once at creation rather than freshly per-bill, since a household's country doesn't change bill-to-bill.
+
+### Where it's edited
+
+The bill review screen (`src/app/groups/[groupId]/bills/[billId]/review/page.tsx`) — already the "correct what Gemini got wrong" step for items/tax/tip/service-charge. A currency picker sits in the header block near the restaurant/store name (next to `bill.restaurantOrStoreName`, currently ~line 204), showing symbol + code (e.g. "$ USD"), pre-filled per the chain above, editable before Confirm. Once confirmed, `bills/{billId}.currency` is fixed for that bill's lifetime — every downstream screen (select, grid, Splitwise push) treats it as immutable.
+
+This also requires de-hardcoding the two literal `$` prefix characters already on that screen — the item-price input (~line 239) and the shared shared-charges Tax/Tip/Service-charge inputs (~line 290, used by all three via one `.map()`) — to instead render the selected currency's symbol. The select/grid screens likely have their own hardcoded `$` for final totals; needs a grep at implementation time rather than assuming these two spots are the only ones.
+
+### Display: real symbols, not codes
+
+`Intl.NumberFormat(locale, { style: 'currency', currency: bill.currency, currencyDisplay: 'narrowSymbol' })` renders the actual glyph (₹, €, £, ¥) automatically for any ISO 4217 code — no separate symbol lookup table needed. `narrowSymbol` (not the default `'symbol'`) is used specifically to avoid country-prefixed forms like `"US$"`, since a bill only ever displays one currency at a time and there's nothing to disambiguate against.
+
+### Money storage: generalizing the "integer cents" rule
+
+The locked decision "money is always integer cents" (§11) assumed every currency has 2 decimal places, which is false — JPY/KRW have 0 minor-unit digits, KWD/BHD have 3. This becomes: **integer smallest-unit for that currency's own minor-unit exponent**, via a small ISO 4217 → minor-unit-exponent lookup table. All money parsing/formatting/summation utilities need to read this table per-bill instead of assuming `× 100` everywhere.
+
+**Backward compatibility:** bills already live in production without a `currency` field. No backfill migration — any read of a bill missing `currency` treats it as `"USD"` (matching the implicit behavior so far).
+
+### Splitwise push
+
+Splitwise's expense-creation API takes a `currency_code` param per expense, independent of the group's own default currency — so the existing push (Phase 10.2) just passes `bill.currency`. **Unverified assumption, needs a docs check at implementation time**: confirm the Splitwise API actually accepts an arbitrary currency per expense regardless of what currency the linked Splitwise group defaults to, rather than requiring the group to "support" it first.
+
+### Open risk / surface area
+
+Not a hard blocker, but the bulk of the implementation work is mechanical breadth, not complexity: every screen currently displaying money (bill card, review, select, grid, dashboard totals) needs its formatting switched from a hardcoded `$`/cents assumption to `bill.currency`-aware formatting.

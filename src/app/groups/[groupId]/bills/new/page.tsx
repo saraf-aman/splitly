@@ -77,7 +77,7 @@ export default function NewBillPage() {
       const billId = await createBill(
         user,
         groupId,
-        { items: [], tax: null, tip: null, serviceCharge: null, total: null, restaurantOrStoreName: null, billDate: null },
+        { items: [], tax: null, tip: null, serviceCharge: null, total: null, restaurantOrStoreName: null, billDate: null, currency: null },
         participantIds,
       );
       router.push(`/groups/${groupId}/bills/${billId}/review`);
