@@ -84,6 +84,13 @@ export async function GET(req: NextRequest) {
       const isSettled = participantIds.length > 0 && participantIds.every((id) => confirmedBy[id]);
       if (!isSettled) continue;
 
+      // Never delete a settled bill that belongs to a Splitwise-linked group
+      // until it's actually been pushed — the final split is the whole point
+      // of the bill, and deleting it first would destroy the only record of
+      // it before the household got to log it.
+      const usesSplitwise = !!householdDoc.data().splitwiseGroupId;
+      if (usesSplitwise && !bill.splitwiseExpenseId) continue;
+
       try {
         await deleteBill(adminDb, billDoc.ref);
         billsDeleted++;
