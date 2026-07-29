@@ -202,11 +202,14 @@ export default function ReviewBillPage() {
               {bill.restaurantOrStoreName ?? "Review receipt"}
             </h1>
             <p className="text-caption text-muted-foreground mt-0.5">
-              Edit items if anything looks wrong, then confirm.
+              Double-check the details below, then continue.
             </p>
           </div>
           <Select value={currency} onValueChange={(value) => value && setCurrency(value)}>
-            <SelectTrigger size="sm" className="shrink-0">
+            <SelectTrigger
+              size="sm"
+              className="shrink-0 border-primary/30 bg-transparent text-primary"
+            >
               <SelectValue>{(value: string) => formatCurrencyOption(value)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -331,7 +334,7 @@ export default function ReviewBillPage() {
           onClick={handleConfirm}
           disabled={saving}
         >
-          {saving ? "Saving…" : "Confirm bill"}
+          {saving ? "Saving…" : "Continue"}
         </Button>
       </div>
     </div>

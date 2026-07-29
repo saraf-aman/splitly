@@ -470,3 +470,20 @@ Splitwise's expense-creation API takes a `currency_code` param per expense, inde
 ### Open risk / surface area
 
 Not a hard blocker, but the bulk of the implementation work is mechanical breadth, not complexity: every screen currently displaying money (bill card, review, select, grid, dashboard totals) needs its formatting switched from a hardcoded `$`/cents assumption to `bill.currency`-aware formatting.
+
+## 17. Account deletion (Phase 15) — discussion only, not yet designed or built
+
+Raised alongside the currency work, deliberately deferred until currency shipped. Nothing below is built — this section captures the discussion so a future session (possibly a fresh one) has the context without re-deriving it.
+
+**Driver: Google Play Store compliance, not a user feature request.** Google Play requires apps that support account creation to also offer (a) an in-app flow to delete the account and its data, and (b) a policy describing what gets deleted, reachable from a public place outside the app (e.g. a web page, no login required) — not just from inside a logged-in session. This becomes relevant once the app is wrapped for Android distribution (see `docs/ANDROID_APP.md`), but the in-app flow itself doesn't depend on the Android wrapper existing yet.
+
+**The hard part is the household model, not the deletion mechanics.** A plain guest or non-creator admin can delete their own account cleanly: leave every household they're in (existing `leaveGroup` self-service pattern, Phase 8.2), delete their `users/{uid}` doc, delete the underlying Firebase Auth user. A **creator** is the problem — they're a permanent super-admin who can't be removed from their own household except as the final step of that household's full deletion (`docs/CLAUDE.md` roles section; `deleteGroup` in `src/lib/group.ts`). So "delete my account" while still being a creator of one or more households needs an explicit decision.
+
+**Leaning discussed (not finalized): block, don't cascade.** If the user is the creator of any household, block account deletion with a clear message pointing them at deleting that household first (reusing the existing typed-name-confirmation `deleteGroup` flow from `docs/CLAUDE.md`'s roles section) — rather than silently cascading the household deletion as a side effect of account deletion. Rationale discussed: household deletion is already the single most destructive action in the app (wipes all members/bills/data for everyone, not just the deleter), and auto-cascading it from a different, less-obviously-scoped action ("delete my account") risks surprising other household members. Blocking with a clear next step keeps that destructive path singular and explicit.
+
+**Not yet discussed / open for the next session:**
+- Exact UI location for the "Delete account" entry point (likely near "Sign out" in `NavDrawer`, going by existing patterns).
+- Exact confirmation UX (typed-name-style like household deletion, or lighter).
+- What "delete the account" does to the Firebase Auth user record itself (client-side `user.delete()` vs. an Admin SDK route) vs. just the Firestore `users/{uid}` doc + household member docs.
+- The public policy page itself — content, route, and whether it needs to exist before an Android submission or can be built alongside the in-app flow.
+- Whether `fcmTokens` cleanup needs anything beyond what deleting the `users/{uid}` doc already handles.
