@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useGroup, useMembers } from "@/lib/group";
 import { useGroupBills } from "@/lib/bills";
 import { useSplitwiseStatus } from "@/lib/splitwise";
+import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import { formatCents } from "@/lib/utils";
 import { NotificationBanner } from "@/components/NotificationBanner";
 import { MemberAvatar } from "@/components/MemberAvatar";
@@ -273,6 +274,7 @@ export default function GroupHomePage() {
   const members = useMembers(groupId);
   const { bills, loading } = useGroupBills(groupId, user?.uid ?? null);
   const { loading: swLoading, connected: swConnected } = useSplitwiseStatus(user?.uid);
+  const isOnline = useOnlineStatus();
   const uid = user?.uid ?? "";
 
   const [swConnecting, setSwConnecting] = useState(false);
@@ -361,12 +363,12 @@ export default function GroupHomePage() {
           </div>
           <button
             onClick={handleBannerConnect}
-            disabled={swConnecting}
+            disabled={swConnecting || !isOnline}
             className="flex w-fit items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity disabled:opacity-60"
             style={{ background: "#2E6E6E" }}
           >
             {swConnecting && <Loader2 size={11} className="animate-spin" />}
-            {swConnecting ? "Connecting…" : "Connect now"}
+            {!isOnline ? "Needs a connection" : swConnecting ? "Connecting…" : "Connect now"}
           </button>
           {swConnectError && (
             <p className="text-xs text-destructive">{swConnectError}</p>

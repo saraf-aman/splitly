@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useBill, useBillItems, useSharedCharges, updateMemberSettleStates, setBillParticipants } from "@/lib/bills";
 import { useGroup, useMembers } from "@/lib/group";
 import { useSplitwiseStatus } from "@/lib/splitwise";
+import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/utils";
 import { calculateSplit, allocateEqually, getActiveParticipants } from "@/lib/splitCalc";
@@ -49,6 +50,7 @@ export default function GridPage() {
   const members = bill?.participantIds ? allMembers.filter((m) => bill.participantIds!.includes(m.id)) : allMembers;
   const group = useGroup(bill?.householdId ?? null);
   const swStatus = useSplitwiseStatus(user?.uid);
+  const isOnline = useOnlineStatus();
 
   // Column header tooltip — fixed-position so it floats above the overflow-x container
   const [tooltip, setTooltip] = useState<{ uid: string; x: number; y: number } | null>(null);
@@ -593,13 +595,17 @@ export default function GridPage() {
 
         {/* Push to Splitwise — standard right-aligned placement below the table */}
         {isUploader && (
-          <div className="flex justify-end px-4 pt-3 pb-2">
+          <div className="flex flex-col items-end gap-1 px-4 pt-3 pb-2">
             <button
-              className="inline-flex items-center gap-2 rounded-lg border border-primary/40 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary/40 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/5 transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
               onClick={handleSplitwisePush}
+              disabled={!isOnline}
             >
               Push to Splitwise
             </button>
+            {!isOnline && (
+              <p className="text-caption text-amber-700">Needs a connection to push</p>
+            )}
           </div>
         )}
       </div>

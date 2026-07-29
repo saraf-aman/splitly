@@ -7,6 +7,7 @@ import { ArrowLeft, Camera, PenLine } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { createBill, parseBillImage } from "@/lib/bills";
 import { useMembers } from "@/lib/group";
+import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -17,6 +18,7 @@ export default function NewBillPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
   const members = useMembers(groupId);
+  const isOnline = useOnlineStatus();
   const uid = user?.uid ?? "";
   const otherMembers = members.filter((m) => m.id !== uid);
 
@@ -122,7 +124,11 @@ export default function NewBillPage() {
         </button>
       </div>
 
-      {mode === "photo" ? (
+      {mode === "photo" && !isOnline ? (
+        <p className="w-full max-w-xs text-center text-caption text-amber-700">
+          Receipt parsing needs a connection — reconnect to use this, or switch to &quot;Enter manually&quot; above.
+        </p>
+      ) : mode === "photo" ? (
         <Card className="w-full max-w-xs p-0">
           <CardContent className="p-0">
             <label className="flex w-full cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center">
@@ -178,7 +184,7 @@ export default function NewBillPage() {
         size="lg"
         className="h-12 w-full max-w-xs px-8 text-base"
         onClick={mode === "photo" ? handleUpload : handleManualCreate}
-        disabled={mode === "photo" ? !file || submitting : submitting}
+        disabled={mode === "photo" ? !file || submitting || !isOnline : submitting}
       >
         {mode === "photo"
           ? submitting

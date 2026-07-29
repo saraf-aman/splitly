@@ -8,6 +8,8 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { clearLastGroupId } from "@/lib/group";
 import { NavDrawer } from "@/components/NavDrawer";
+import { OfflineBanner, OFFLINE_BANNER_H } from "@/components/OfflineBanner";
+import { useOnlineStatus } from "@/lib/useOnlineStatus";
 
 const SHELLLESS_PATHS = ["/login", "/onboarding"];
 const PICKER_PATH = "/groups";
@@ -21,6 +23,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const isOnline = useOnlineStatus();
+  const offlineOffset = isOnline ? 0 : OFFLINE_BANNER_H;
 
   const hhMatch = pathname.match(/^\/groups\/([^/]+)/);
   const hhId = hhMatch?.[1] ?? "";
@@ -37,14 +41,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (isShellLess) {
-    return <>{children}</>;
+    return (
+      <>
+        {!isOnline && <OfflineBanner />}
+        <div style={{ paddingTop: offlineOffset }}>{children}</div>
+      </>
+    );
   }
 
   return (
     <div className="flex flex-1 flex-col">
+      {!isOnline && <OfflineBanner />}
       <header
-        className="fixed inset-x-0 top-0 z-20 border-b border-border"
+        className="fixed inset-x-0 z-20 border-b border-border"
         style={{
+          top: offlineOffset,
           background: "rgba(244,242,239,0.92)",
           backdropFilter: "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
@@ -91,7 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       </header>
 
-      <main style={{ paddingTop: NAV_H }} className="flex flex-1 flex-col">
+      <main style={{ paddingTop: NAV_H + offlineOffset }} className="flex flex-1 flex-col">
         {children}
       </main>
 
