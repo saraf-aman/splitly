@@ -44,7 +44,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <>
         {!isOnline && <OfflineBanner />}
-        <div style={{ paddingTop: offlineOffset }}>{children}</div>
+        <div className="flex flex-1 flex-col" style={{ paddingTop: offlineOffset }}>
+          {children}
+        </div>
       </>
     );
   }
