@@ -227,8 +227,9 @@ export default function GroupManagePage() {
             Splitwise accounts
           </p>
           <p className="mb-2 text-xs text-muted-foreground">
-            These members haven&apos;t connected Splitwise yet. If their Splitwise email differs
-            from their Google email, enter it here so they&apos;re matched correctly when pushing expenses.
+            These members haven&apos;t connected Splitwise yet. When pushing expenses, we&apos;ll try
+            matching them by their login email below — if their Splitwise account uses a different
+            email, enter it here so they&apos;re matched correctly instead.
           </p>
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
             {unlinkedMembers.map((member, idx) => {
@@ -260,7 +261,7 @@ export default function GroupManagePage() {
                   <div className="flex items-center gap-2">
                     <Input
                       type="email"
-                      placeholder={`Splitwise email (default: ${member.email})`}
+                      placeholder="Splitwise email override (optional)"
                       value={inputVal}
                       onChange={(e) =>
                         setSwEmailInputs((v) => ({ ...v, [member.id]: e.target.value }))

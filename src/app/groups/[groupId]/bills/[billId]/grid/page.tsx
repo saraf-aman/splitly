@@ -832,7 +832,8 @@ export default function GridPage() {
                   ))}
                 </div>
                 <p className="mt-1.5 text-[11px] text-amber-700">
-                  These members don&apos;t have a linked Splitwise account. An admin can set their
+                  We tried matching them by their login email but couldn&apos;t find them in this
+                  Splitwise group. Either push without them, or an admin can link their corresponding
                   Splitwise email on the manage page.
                 </p>
               </div>
