@@ -462,65 +462,67 @@ export default function GridPage() {
                   </td>
                 </tr>
               )}
-              {items.map((item, idx) => (
-                <tr key={item.id} className={idx % 2 === 0 ? "bg-background" : "bg-card"}>
-                  <td
-                    className="sticky left-0 z-10 min-w-[130px] max-w-[180px] px-4 py-2.5"
-                    style={{
-                      backgroundColor:
-                        idx % 2 === 0 ? "hsl(var(--background))" : "hsl(var(--card))",
-                    }}
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-body text-foreground leading-snug line-clamp-2">
-                        {item.name}
-                      </span>
-                      <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                        {formatCents(item.price)}
-                      </span>
-                    </div>
-                  </td>
-                  {orderedMembers.map((m) => {
-                    const confirmed = confirmedBy[m.id];
-                    const sel = item.selections[m.id];
-                    const included = sel?.included ?? confirmed;
-                    const shares = sel?.shares ?? 1;
-                    const uploaderSet = sel?.setBy && sel.setBy !== m.id;
+              {items.map((item, idx) => {
+                const rowBg = idx % 2 === 0 ? "bg-background" : "bg-card";
+                return (
+                  <tr key={item.id} className={rowBg}>
+                    {/* Sticky cell's background is the SAME static Tailwind
+                        class as the row's, not a JS-computed inline style —
+                        matching the header th (which never had the ghosting
+                        bug) turned out to be the actual fix, not the table
+                        vs. div markup or position:sticky itself. */}
+                    <td className={`sticky left-0 z-10 min-w-[130px] max-w-[180px] px-4 py-2.5 ${rowBg}`}>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-body text-foreground leading-snug line-clamp-2">
+                          {item.name}
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                          {formatCents(item.price)}
+                        </span>
+                      </div>
+                    </td>
+                    {orderedMembers.map((m) => {
+                      const confirmed = confirmedBy[m.id];
+                      const sel = item.selections[m.id];
+                      const included = sel?.included ?? confirmed;
+                      const shares = sel?.shares ?? 1;
+                      const uploaderSet = sel?.setBy && sel.setBy !== m.id;
 
-                    let cellContent: React.ReactNode;
-                    if (!sel || !included) {
-                      cellContent = <span className="text-muted-foreground/30">—</span>;
-                    } else if (uploaderSet || m.id === uid) {
-                      cellContent = (
-                        <span
-                          className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                            uploaderSet ? "bg-amber-500 text-white" : "bg-green-500 text-white"
-                          }`}
+                      let cellContent: React.ReactNode;
+                      if (!sel || !included) {
+                        cellContent = <span className="text-muted-foreground/30">—</span>;
+                      } else if (uploaderSet || m.id === uid) {
+                        cellContent = (
+                          <span
+                            className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              uploaderSet ? "bg-amber-500 text-white" : "bg-green-500 text-white"
+                            }`}
+                          >
+                            <Check className="size-3 shrink-0" />
+                            {shares > 1 && <span>×{shares}</span>}
+                          </span>
+                        );
+                      } else {
+                        cellContent = (
+                          <span className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold bg-stone-300 text-stone-600">
+                            <Check className="size-3 shrink-0" />
+                            {shares > 1 && <span>×{shares}</span>}
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <td
+                          key={m.id}
+                          className={`px-2 py-2.5 text-center ${!confirmed ? "bg-muted/60" : ""}`}
                         >
-                          <Check className="size-3 shrink-0" />
-                          {shares > 1 && <span>×{shares}</span>}
-                        </span>
+                          {cellContent}
+                        </td>
                       );
-                    } else {
-                      cellContent = (
-                        <span className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold bg-stone-300 text-stone-600">
-                          <Check className="size-3 shrink-0" />
-                          {shares > 1 && <span>×{shares}</span>}
-                        </span>
-                      );
-                    }
-
-                    return (
-                      <td
-                        key={m.id}
-                        className={`px-2 py-2.5 text-center ${!confirmed ? "bg-muted/60" : ""}`}
-                      >
-                        {cellContent}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
 
             {charges.length > 0 && memberIds.length > 0 && (
