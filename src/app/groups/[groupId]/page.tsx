@@ -26,8 +26,16 @@ const SECTION_META: Record<Section, { label: string; stripe: string; pill: strin
 
 // Phase 12.10: retention is per-group (`Group.retentionMonths`), set by the
 // creator in Manage — null/undefined means keep settled bills forever.
-function isSettledAndOld(bill: Bill & { id: string }, retentionMonths: number | null | undefined): boolean {
+function isSettledAndOld(
+  bill: Bill & { id: string },
+  retentionMonths: number | null | undefined,
+  usesSplitwise: boolean,
+): boolean {
   if (!retentionMonths) return false;
+  // Never hide a settled bill that hasn't been pushed to Splitwise yet in a
+  // Splitwise-linked group — matches the cron's delete guard (12.8) so a
+  // bill can't disappear from view before it's had a chance to be logged.
+  if (usesSplitwise && !bill.splitwiseExpenseId) return false;
   const ts = bill.createdAt;
   if (!ts) return false;
   const retentionMs = retentionMonths * 30 * 24 * 60 * 60 * 1000;
@@ -356,7 +364,7 @@ export default function GroupHomePage() {
       s,
       bills.filter((b) => {
         if (getSection(b, uid, billMemberIds(b)) !== s) return false;
-        if (s === "settled" && isSettledAndOld(b, group?.retentionMonths)) return false;
+        if (s === "settled" && isSettledAndOld(b, group?.retentionMonths, !!group?.splitwiseGroupId)) return false;
         return true;
       }),
     ])
