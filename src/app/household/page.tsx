@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUserGroup } from "@/lib/group";
+import { Loading } from "@/components/Loading";
 
 export default function GroupManageRedirect() {
   const { groupId, loading } = useUserGroup();
@@ -13,5 +14,5 @@ export default function GroupManageRedirect() {
     router.replace(`/groups/${groupId}/group`);
   }, [loading, groupId, router]);
 
-  return null;
+  return <Loading />;
 }

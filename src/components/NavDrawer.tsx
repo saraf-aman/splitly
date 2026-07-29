@@ -47,6 +47,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   // Splitwise personal connection
   const [swConnecting, setSwConnecting] = useState(false);
@@ -136,10 +137,13 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   async function handleLeave() {
     if (!user) return;
     setLeaving(true);
+    setLeaveError(null);
     try {
       await leaveGroup(user, householdId);
       onClose();
       router.replace("/groups");
+    } catch {
+      setLeaveError("Couldn't leave the group. Please try again.");
     } finally {
       setLeaving(false);
     }
@@ -500,6 +504,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
               <p className="mb-2.5 text-xs text-foreground">
                 Leave <span className="font-semibold">{household?.name}</span>? You&apos;ll lose access to all its bills.
               </p>
+              {leaveError && <p className="mb-2 text-xs text-destructive">{leaveError}</p>}
               <div className="flex gap-2">
                 <button
                   onClick={handleLeave}

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUserGroup } from "@/lib/group";
+import { Loading } from "@/components/Loading";
 
 export default function GridRedirect() {
   const { billId } = useParams<{ billId: string }>();
@@ -14,5 +15,5 @@ export default function GridRedirect() {
     router.replace(`/groups/${groupId}/bills/${billId}/grid`);
   }, [loading, groupId, billId, router]);
 
-  return null;
+  return <Loading />;
 }

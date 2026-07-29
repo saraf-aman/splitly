@@ -6,6 +6,7 @@ import { ChevronRight, ChevronDown, PlusCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useUserGroups, useGroupList } from "@/lib/group";
 import { GroupFormCard } from "@/components/GroupFormCard";
+import { Loading } from "@/components/Loading";
 
 export default function GroupsPickerPage() {
   const { loading, groupIds } = useUserGroups();
@@ -29,8 +30,8 @@ export default function GroupsPickerPage() {
     }
   }, [loading, groupIds, router, joinMode, pickerMode, user]);
 
-  // Show nothing while redirecting (0 or 1 group when not in join/picker mode)
-  if (loading || (groupIds.length < 2 && !joinMode && !pickerMode)) return null;
+  // Show a loading indicator while redirecting (0 or 1 group when not in join/picker mode)
+  if (loading || (groupIds.length < 2 && !joinMode && !pickerMode)) return <Loading />;
 
   return (
     <div className="flex flex-1 flex-col items-center gap-4 bg-background px-6 pt-10 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">

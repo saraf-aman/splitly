@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, Trash2, CheckCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { Loading } from "@/components/Loading";
 import {
   deleteGroup,
   removeMember,
@@ -62,9 +63,12 @@ export default function GroupManagePage() {
   const members = useMembers(groupId);
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [memberActionError, setMemberActionError] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [retentionSaving, setRetentionSaving] = useState(false);
+  const [retentionError, setRetentionError] = useState<string | null>(null);
 
   // splitwiseEmail inputs: memberId → current text in the input
   const [swEmailInputs, setSwEmailInputs] = useState<Record<string, string>>({});
@@ -73,11 +77,7 @@ export default function GroupManagePage() {
   const [swEmailSaved, setSwEmailSaved] = useState<Record<string, boolean>>({});
 
   if (!group) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-background">
-        <p className="text-body text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <Loading />;
   }
 
   const me = members.find((m) => m.id === user?.uid);
@@ -93,8 +93,11 @@ export default function GroupManagePage() {
 
   async function handleRoleChange(memberId: string, role: Role) {
     setBusyId(memberId);
+    setMemberActionError(null);
     try {
       await updateMemberRole(groupId, memberId, role);
+    } catch {
+      setMemberActionError("Couldn't change that member's role. Please try again.");
     } finally {
       setBusyId(null);
     }
@@ -102,8 +105,11 @@ export default function GroupManagePage() {
 
   async function handleRemove(memberId: string) {
     setBusyId(memberId);
+    setMemberActionError(null);
     try {
       await removeMember(groupId, memberId);
+    } catch {
+      setMemberActionError("Couldn't remove that member. Please try again.");
     } finally {
       setBusyId(null);
     }
@@ -111,8 +117,11 @@ export default function GroupManagePage() {
 
   async function handleDeleteGroup() {
     setDeleting(true);
+    setDeleteError(null);
     try {
       await deleteGroup(groupId, group!.createdBy);
+    } catch {
+      setDeleteError("Couldn't delete the group. Please try again.");
     } finally {
       setDeleting(false);
     }
@@ -121,8 +130,11 @@ export default function GroupManagePage() {
   async function handleRetentionChange(value: string | null) {
     if (!value) return;
     setRetentionSaving(true);
+    setRetentionError(null);
     try {
       await updateGroupRetention(groupId, value === "never" ? null : Number(value));
+    } catch {
+      setRetentionError("Couldn't save the retention setting. Please try again.");
     } finally {
       setRetentionSaving(false);
     }
@@ -168,6 +180,9 @@ export default function GroupManagePage() {
         <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           Members
         </p>
+        {memberActionError && (
+          <p className="mb-1.5 text-xs text-destructive">{memberActionError}</p>
+        )}
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           {members.map((member, idx) => {
             const isSelf = member.id === user?.uid;
@@ -340,6 +355,7 @@ export default function GroupManagePage() {
                   <SelectItem value="never">Never</SelectItem>
                 </SelectContent>
               </Select>
+              {retentionError && <p className="text-xs text-destructive">{retentionError}</p>}
             </CardContent>
           </Card>
         </div>
@@ -367,6 +383,7 @@ export default function GroupManagePage() {
                 disabled={deleting}
               />
             </div>
+            {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
             <Button
               className="self-start bg-destructive text-white hover:bg-destructive/90"
               disabled={deleting || confirmText !== group.name}

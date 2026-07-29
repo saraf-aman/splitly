@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { Loading } from "@/components/Loading";
 
 const PUBLIC_PATHS = ["/login"];
 
@@ -23,11 +24,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [loading, user, isPublicPath, router]);
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (!user && !isPublicPath) {

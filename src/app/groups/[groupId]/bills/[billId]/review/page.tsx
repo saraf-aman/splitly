@@ -10,6 +10,7 @@ import type { Bill } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Loading } from "@/components/Loading";
 
 interface EditableItem {
   id: string;
@@ -45,29 +46,36 @@ export default function ReviewBillPage() {
   const [tipStr, setTipStr] = useState("");
   const [serviceStr, setServiceStr] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [counter, setCounter] = useState(0);
 
   useEffect(() => {
     if (!billId) return;
-    getBill(billId).then((b) => {
-      if (b) {
-        setBill(b);
-        setItems(
-          b.parsedResult.items.map((item, i) => ({
-            id: `${uid}-${i}`,
-            name: item.name,
-            priceStr: centsToDollars(item.price),
-            lowConfidence: item.lowConfidence,
-          }))
-        );
-        setCounter(b.parsedResult.items.length);
-        setTaxStr(centsToDollars(b.parsedResult.tax));
-        setTipStr(centsToDollars(b.parsedResult.tip));
-        setServiceStr(centsToDollars(b.parsedResult.serviceCharge));
-      }
-      setLoading(false);
-    });
+    getBill(billId)
+      .then((b) => {
+        if (b) {
+          setBill(b);
+          setItems(
+            b.parsedResult.items.map((item, i) => ({
+              id: `${uid}-${i}`,
+              name: item.name,
+              priceStr: centsToDollars(item.price),
+              lowConfidence: item.lowConfidence,
+            }))
+          );
+          setCounter(b.parsedResult.items.length);
+          setTaxStr(centsToDollars(b.parsedResult.tax));
+          setTipStr(centsToDollars(b.parsedResult.tip));
+          setServiceStr(centsToDollars(b.parsedResult.serviceCharge));
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoadError(true);
+        setLoading(false);
+      });
   }, [billId, uid]);
 
   function updateItem(id: string, patch: Partial<EditableItem>) {
@@ -89,6 +97,7 @@ export default function ReviewBillPage() {
   async function handleConfirm() {
     if (!bill || !billId) return;
     setSaving(true);
+    setConfirmError(null);
     try {
       const confirmedItems = items.map((it) => ({
         name: it.name.trim() || "Item",
@@ -118,15 +127,24 @@ export default function ReviewBillPage() {
         }).catch(() => {});
       }
       router.push(`/groups/${groupId}/bills/${billId}/select`);
+    } catch (e) {
+      setConfirmError(e instanceof Error ? e.message : "Couldn't save the bill. Please try again.");
     } finally {
       setSaving(false);
     }
   }
 
   if (loading) {
+    return <Loading label="Loading bill…" />;
+  }
+
+  if (loadError) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-muted-foreground">Loading bill…</p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+        <p className="text-body text-muted-foreground">Couldn&apos;t load this bill. Please try again.</p>
+        <Button variant="outline" onClick={() => router.push(`/groups/${groupId}`)}>
+          Go home
+        </Button>
       </div>
     );
   }
@@ -286,6 +304,9 @@ export default function ReviewBillPage() {
       </div>
 
       <div className="border-t bg-card px-4 py-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        {confirmError && (
+          <p className="mb-2 text-center text-xs text-destructive">{confirmError}</p>
+        )}
         <Button
           size="lg"
           className="h-12 w-full text-base"

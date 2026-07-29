@@ -11,6 +11,7 @@ import { useGroup, useMembers } from "@/lib/group";
 import { useSplitwiseStatus } from "@/lib/splitwise";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import { Button } from "@/components/ui/button";
+import { Loading } from "@/components/Loading";
 import { formatCents } from "@/lib/utils";
 import { calculateSplit, allocateEqually, getActiveParticipants } from "@/lib/splitCalc";
 import type { SharedChargeType } from "@/types/firestore";
@@ -59,6 +60,7 @@ export default function GridPage() {
   const [settleSheetOpen, setSettleSheetOpen] = useState(false);
   const [settleStates, setSettleStates] = useState<Record<string, boolean>>({});
   const [settleSaving, setSettleSaving] = useState(false);
+  const [settleError, setSettleError] = useState<string | null>(null);
 
   // Splitwise dialog state
   const [swDialog, setSwDialog] = useState<SwDialog>("idle");
@@ -71,6 +73,7 @@ export default function GridPage() {
   const [manageSheetOpen, setManageSheetOpen] = useState(false);
   const [participantStates, setParticipantStates] = useState<Record<string, boolean>>({});
   const [participantSaving, setParticipantSaving] = useState(false);
+  const [participantSaveError, setParticipantSaveError] = useState<string | null>(null);
   const [blockedMemberName, setBlockedMemberName] = useState<string | null>(null);
 
   // Manual per-member remind icon, inside the settle sheet (Phase 12.6)
@@ -81,11 +84,7 @@ export default function GridPage() {
   const uid = user?.uid ?? "";
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (!bill) {
@@ -161,6 +160,7 @@ export default function GridPage() {
 
   async function saveParticipants() {
     setParticipantSaving(true);
+    setParticipantSaveError(null);
     try {
       const originalIds = new Set(members.map((m) => m.id));
       const nextIds = allMembers.filter((m) => participantStates[m.id]).map((m) => m.id);
@@ -175,6 +175,8 @@ export default function GridPage() {
         for (const m of removed) notifyParticipantChange(m.id, "removed");
       }
       setManageSheetOpen(false);
+    } catch {
+      setParticipantSaveError("Couldn't save participants. Please try again.");
     } finally {
       setParticipantSaving(false);
     }
@@ -200,6 +202,7 @@ export default function GridPage() {
 
   async function saveSettleStates() {
     setSettleSaving(true);
+    setSettleError(null);
     try {
       const diff: Record<string, boolean> = {};
       const changes: { uid: string; settled: boolean }[] = [];
@@ -234,6 +237,8 @@ export default function GridPage() {
         }
       }
       setSettleSheetOpen(false);
+    } catch {
+      setSettleError("Couldn't save settlement. Please try again.");
     } finally {
       setSettleSaving(false);
     }
@@ -696,6 +701,9 @@ export default function GridPage() {
               })}
             </div>
 
+            {settleError && (
+              <p className="mb-2 text-center text-xs text-destructive">{settleError}</p>
+            )}
             <Button
               className="w-full"
               disabled={settleSaving}
@@ -754,6 +762,9 @@ export default function GridPage() {
               })}
             </div>
 
+            {participantSaveError && (
+              <p className="mb-2 text-center text-xs text-destructive">{participantSaveError}</p>
+            )}
             <Button className="w-full" disabled={participantSaving} onClick={saveParticipants}>
               {participantSaving ? "Saving…" : "Save"}
             </Button>

@@ -10,6 +10,7 @@ import { useMembers } from "@/lib/group";
 import type { SharedChargeType } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Loading } from "@/components/Loading";
 import { formatCents } from "@/lib/utils";
 
 const CHARGE_LABELS: Record<SharedChargeType, string> = {
@@ -62,11 +63,7 @@ export default function SelectItemsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (!bill) {

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUserGroup } from "@/lib/group";
+import { Loading } from "@/components/Loading";
 
 export default function SelectRedirect() {
   const { billId } = useParams<{ billId: string }>();
@@ -14,5 +15,5 @@ export default function SelectRedirect() {
     router.replace(`/groups/${groupId}/bills/${billId}/select`);
   }, [loading, groupId, billId, router]);
 
-  return null;
+  return <Loading />;
 }

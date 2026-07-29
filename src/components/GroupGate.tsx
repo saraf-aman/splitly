@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import { clearRemovedGroupPointer, setLastGroupId, useMembershipStatus, useUserGroups } from "@/lib/group";
 import { useNotificationSetup } from "@/lib/notifications";
+import { Loading } from "@/components/Loading";
 
 const ONBOARDING_PATH = "/onboarding";
 const PICKER_PATH = "/groups";
@@ -87,11 +88,7 @@ export function GroupGate({ children }: { children: React.ReactNode }) {
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (wasRemoved) {
