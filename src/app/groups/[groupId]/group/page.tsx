@@ -337,7 +337,7 @@ export default function GroupManagePage() {
           <Card>
             <CardContent className="flex flex-col gap-2">
               <p className="text-caption text-muted-foreground">
-                Settled bills older than this are hidden from the home feed.
+                Settled bills older than this are deleted.
               </p>
               <Select
                 value={group.retentionMonths ? String(group.retentionMonths) : "never"}
