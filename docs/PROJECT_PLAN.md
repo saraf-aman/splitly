@@ -1,6 +1,6 @@
 # Project Plan — Household Bill Splitter
 
-Full reference doc. `CLAUDE.md` points here for detail on specific topics — you generally only need one section of this at a time, not the whole file.
+Full reference doc. `CLAUDE.md` points here for detail on specific topics — you generally only need one section of this at a time, not the whole file. Sections describing **shipped** features (§1–§16) are kept concise since the code is the source of truth for exact behavior; only decisions/rationale not obvious from the code are recorded. §17 (not yet built) stays fully detailed since there's no code to defer to yet.
 
 ## 1. Problem statement
 
@@ -29,447 +29,167 @@ Three-tier hierarchy: **Creator** (the household's original creator — a perman
 | Change household settings | ✅ | ✅ | ❌ |
 | Delete the household (wipes all members/bills/data) | ✅ | ❌ | ❌ |
 
-Guests sign in with their own Google account (not a proxy/shared login) so they can interact independently in realtime. Removing a guest revokes future access only — it does not alter their selections on past bills (historical data is preserved as-is).
+Guests sign in with their own Google account (not a proxy/shared login) so they can interact independently in realtime. Removing a guest revokes future access only — it does not alter their selections on past bills.
 
-A guest can alternatively be represented with zero login at all, by another member simply bumping their own share count on relevant items (e.g. "2" instead of "1"). This remains available for one-off, non-recurring guests who won't be interacting with the app themselves — it's a manual convenience, not a formal role.
+A guest can alternatively be represented with zero login at all, by another member simply bumping their own share count on relevant items — a manual convenience for one-off guests, not a formal role.
 
-**Bill-owner override is separate from this tier table** — it's keyed off bill-upload ownership (`bills/{id}.uploadedBy`), not household role. Whoever uploads a given bill can check/uncheck items and adjust share counts on behalf of any other member *on that bill's grid screen only* (Phase 6.4); a guest who uploads a bill gets override rights on that specific bill just like an admin or the creator would. This is orthogonal to the Creator/Admin/Guest hierarchy above, not an extension of it.
+**Bill-owner override is separate from this tier table** — it's keyed off bill-upload ownership (`bills/{id}.uploadedBy`), not household role. Whoever uploads a given bill can check/uncheck items and adjust share counts on behalf of any other member on that bill's grid screen only (Phase 6.4).
 
 ## 4. Core user flow
 
-1. **Upload**: Any household member (admin or guest) uploads a photo/screenshot of a receipt.
-2. **AI parse**: The image is sent to the Google Gemini API (vision, free tier), which returns structured JSON: line items (name, price), and separately identified tax, tip, service charge, and total.
-3. **Review/edit**: The uploader sees the parsed draft and can correct/add/remove line items before confirming. Low-confidence items (the AI wasn't sure) are visually flagged for a second look.
-4. **Confirm**: Bill status becomes `open`. All household members get a push notification that a new bill is ready.
-5. **Select**: Each member opens the bill and sees every line item as a row with two controls:
-   - a checkbox (include me / not me)
-   - a share count (default `1`) — used for cases like "my friend is staying with me, count me for 2 shares" without that friend needing an account
-   Tax/tip/service-charge rows are always shown in this same screen, always pre-checked, and are **not editable** (can't be unchecked or share-adjusted) — they always apply equally to everyone on the bill.
-   All of this is realtime: as soon as one person changes a selection, everyone else viewing the bill sees the update live via Firestore listeners.
-6. **Final grid**: Once people are done selecting, anyone who interacted with the bill can view a grid — items (rows) × household members (columns) — showing each person's share count per item, with `-` for anyone who didn't select that item. Below the grid: each person's final total (their itemized cost + their equal share of tax/tip/service charge). The bill's uploader can also check/uncheck items and adjust shares here on behalf of any other member (everyone else can only edit their own column); each cell's `setBy` field distinguishes a self-set entry from one the uploader overrode, rendered as a visual difference (e.g. checkmark color) so it's clear at a glance who actually made a given selection.
+1. **Upload**: Any household member uploads a photo/screenshot of a receipt (or enters items manually).
+2. **AI parse**: Sent to Google Gemini (vision, free tier), returns structured JSON: line items, tax, tip, service charge, total.
+3. **Review/edit**: Uploader corrects/adds/removes items before confirming; low-confidence items are flagged.
+4. **Confirm**: Bill status becomes `open`. Participants get a push notification.
+5. **Select**: Each participant sees every item with a checkbox (include me) + share count (default 1). Tax/tip/service-charge rows are always pre-checked and locked (equal split, not editable). Realtime via Firestore listeners.
+6. **Final grid**: Items × members grid with per-person totals (itemized cost + equal share of tax/tip/service). The uploader can edit any member's column; everyone else can only edit their own.
 
 ## 5. Split calculation logic
 
 - **Item cost per person** = (item price ÷ total shares claimed on that item) × that person's shares.
-  - Example: a $12 item with Person A = 1 share, Person B = 2 shares → total 3 shares → A pays $4, B pays $8.
-- **Tax / tip / service charge**: always split **equally** across everyone who is part of the bill (not proportional to what they ordered), regardless of item selections.
-- **Rounding**: cents must not be silently dropped or double-counted across people — use a rounding remainder allocation approach (e.g. give the leftover cent(s) to whoever's total already rounds down the most) so the sum of all individual totals always equals the bill total exactly.
-- **No cross-bill ledger.** The final grid for a given bill is the complete output of that bill. The bill owner manually (or via the Splitwise integration) logs the totals into Splitwise. The app does not track "who owes whom" across multiple bills over time.
+- **Tax/tip/service charge**: always split equally across everyone on the bill, regardless of item selections.
+- **Rounding**: a remainder-allocation approach ensures the sum of all individual totals always equals the bill total exactly — no floats, ever.
+- **No cross-bill ledger.** Each bill is a complete, self-contained output; the app never tracks who-owes-whom across bills over time.
 
 ## 6. Data model (Firestore)
 
 ```
-users/{userId}               // reverse index: which household(s) this signed-in user belongs to
-  householdIds: string[]     // a user may belong to multiple households (Phase 8) — a simple
-                             // array field, not a subcollection, since it's always read all-at-
-                             // once for a picker/dashboard and never queried/filtered independently
-  fcmTokens: { [deviceId]: string }  // device push tokens, centralized here (not per-household —
-                             // see Phase 12.2 follow-up) since a token isn't household-specific and
-                             // nothing in the UI reads another member's token; notify routes read
-                             // it via the Admin SDK, which bypasses rules anyway
+users/{userId}
+  householdIds: string[]     // households this user belongs to
+  fcmTokens: { [deviceId]: string }
 
 households/{householdId}
-  name: string
-  createdAt: timestamp
-  createdBy: userId          // lets security rules bootstrap the creator's own admin member doc
+  name, createdAt, createdBy
+  defaultCurrency            // Phase 14 — ISO 4217, set once at creation
+  retentionMonths?: number | null   // Phase 12.7 — creator-only, null = keep forever
+  splitwiseGroupId?, splitwiseGroupName?   // creator-only link
   members/{userId}
-    displayName: string
-    photoUrl: string
-    role: "admin" | "guest"
-    addedAt: timestamp
+    displayName, photoUrl, email, role: "admin" | "guest", addedAt
+    splitwiseUserId?, splitwiseEmail?
 
 bills/{billId}
-  householdId: string
-  uploadedBy: userId
-  // no imageUrl field — the receipt photo is never persisted. It's sent
-  // directly to the Claude parsing API route and discarded once parsed.
-  restaurantOrStoreName: string | null
-  billDate: timestamp
-  status: "pending_review" | "open" | "settled"
-  createdAt: timestamp
+  householdId, uploadedBy
+  // no imageUrl — receipt photo is never persisted
+  restaurantOrStoreName, billDate, status: "pending_review" | "open" | "settled"
+  currency                   // Phase 14, immutable once confirmed
+  createdAt
+  participantIds: string[]   // Phase 12 — subset of household members this bill applies to
+  confirmedBy?: Record<uid, boolean>
+  splitwiseExpenseId?: number  // set after a successful Splitwise push
+  reminders?, lastManualReminderAt?  // Phase 12 reminder/nudge state
 
   items/{itemId}
-    name: string
-    price: number               // in cents, to avoid float rounding issues
-    lowConfidence: boolean       // AI parser flagged this for double-checking
-    selections: {
-      // default: included=true, shares=1. setBy records who actually wrote this entry (self, or
-      // the bill's uploadedBy overriding it) — used purely for the Phase 6.4 attribution display,
-      // not rules-enforced (it's a cosmetic hint, not a security boundary).
-      [userId]: { included: boolean, shares: number, setBy: userId }
-    }
+    name, price (integer smallest-unit for the bill's currency), lowConfidence
+    selections: { [userId]: { included, shares, setBy } }   // setBy = self or uploader override
 
-  sharedCharges/{chargeId}      // tax, tip, service charge — always equal split, locked
-    type: "tax" | "tip" | "service_charge" | "other"
-    amount: number              // in cents
+  sharedCharges/{chargeId}   // tax, tip, service_charge — always equal split, structurally separate from items
+    type, amount
 ```
 
 Design notes:
-- Store all money values in **integer cents**, never floats, to avoid rounding bugs.
-- `sharedCharges` is a separate collection from `items` specifically because it's never subject to per-user include/exclude/share editing — keeping it structurally separate prevents accidental UI logic that lets someone uncheck a tax line.
-- History retention: bills older than **2 weeks** are not shown in the default history view. (Implementation options to evaluate at that stage: a scheduled Cloud Function that archives/deletes, or simply a query filter with a manual cleanup job — pick the cheaper one; likely a query filter, since there's no strict need to actually delete data at this small scale, just hide old clutter.)
-- `items` Firestore rules (Phase 6.4): today any household member can write the entire `items/{itemId}` doc, with no restriction on whose `selections` key they touch. That's tightened at Phase 6.4 by scoping the `update` rule with `request.resource.data.selections.diff(resource.data.selections).affectedKeys()`, requiring the changed keys to be either just the caller's own uid, or — if the caller is the bill's `uploadedBy` — any key at all. `create` stays open to any household member (Phase 4.2 confirm writes the initial item docs).
-- Phase 12 adds `participantIds`/`lastManualReminderAt`/`reminders` fields to `bills/{billId}` and re-scopes bill-level access from plain household membership to `participantIds` — see §15 for the full field list and rules change.
+- Money is always stored as an **integer in the currency's smallest unit** (cents for USD, but 0-decimal for JPY/KRW, 3-decimal for KWD/BHD — see §16), never floats.
+- `sharedCharges` is a separate collection from `items` specifically so no UI path can accidentally let someone uncheck a tax line.
+- `items` Firestore rules (Phase 6.4): a write to `selections` only succeeds if the changed keys are the caller's own uid, or — if the caller is the bill's `uploadedBy` — any key.
+- Bill-level access (`read`/`update`/`delete`) is scoped to `participantIds`, not plain household membership (Phase 12.1).
 
 ## 7. Notifications (Firebase Cloud Messaging)
 
-Triggers:
-- New bill uploaded and confirmed → notify all participants (§15) except the uploader.
-- Everyone's done → when the last participant confirms their selections, notify the uploader. (Phase 12.4, §15.)
-- Automated reminder → if a participant hasn't confirmed selections on an `open` bill, nudge at 24h then every 48h, capped at 3. (Phase 12.5, §15.)
-- Manual reminder → uploader-triggered "Remind everyone," rate-limited to once per 24h per bill. (Phase 12.6, §15.)
-
-iOS requirement: FCM push via PWA requires iOS 16.4+ and the app installed to the home screen. All household members are on iOS 17/18 — this is confirmed met, no special handling needed.
+Triggers: new bill opened (all participants except uploader) · everyone's done (uploader only) · automated reminder (24h then every 72h, capped at 3) · manual "remind" nudge (uploader-triggered, rate-limited). All reuse one FCM send path. iOS requires 16.4+ with the PWA installed to home screen — confirmed met for all household members (iOS 17/18).
 
 ## 8. Splitwise integration
 
-- Per-user OAuth connect/disconnect lives in the NavDrawer. Splitwise group linking (which Splitwise group receives pushes for this household) is **creator-only** — no other admin can link/unlink a group. This avoids conflicts from two admins linking different groups.
-- This is additive — the in-app final grid remains the source of truth even without Splitwise connected.
-
-### Member resolution at push time
-
-When pushing, each household member is resolved to a Splitwise user in this order:
-1. `members/{uid}.splitwiseUserId` (persisted after OAuth connect, or admin-set) — takes full priority, email logic is skipped for these members.
-2. Email match against the Splitwise group member list — uses `members/{uid}.splitwiseEmail` (admin-set alternate) if set, otherwise `members/{uid}.email` (Google account email).
-
-Unresolved members are omitted from the Splitwise expense (not an error — bill owner is warned and can proceed or cancel to fix).
-
-### Push UX (grid screen, Phase 10.2)
-
-**Button placement:** Outside the horizontal-scroll table container (never scrolls left/right). Sits in the main scrollable area directly below the table. Left-padded `pl-[130px]` so its left edge aligns with the first member column, giving the visual impression it sits right below the totals numbers. Compact width, not full-width. Visible to bill uploader only when the household has a Splitwise group linked.
-
-**Error cascade (each step is a dialog):**
-1. Uploader not connected to Splitwise → connect dialog.
-2. Connected but no Splitwise group linked → "Ask the group creator to link a Splitwise group."
-3. Group linked but bill not settled → "Please settle the bill before pushing to Splitwise."
-4. All conditions met, not yet pushed → pre-push resolver sheet: shows each member as resolved (green) or unresolved/omitted (amber). "Push anyway" / "Cancel."
-5. Already pushed (`splitwiseExpenseId` set) → warning dialog: "This will create a duplicate expense in Splitwise." If confirmed, push again. Never block re-push — only warn. Splitwise has no idempotency; duplicates must be deleted in Splitwise manually.
-
-**After push:** Write `splitwiseExpenseId: number` to the bill doc. Button remains tappable but always shows the duplicate warning on subsequent taps.
-
-**Payer:** bill uploader; their `users/{uid}.splitwise.accessToken` is used. Currency: USD.
-
-### Settle management (grid screen, Phase 10.2)
-
-The existing "Mark as settled" button is replaced with a tappable confirmed-users banner:
-- Banner shows "X of Y confirmed" + member pills (existing). A `›` arrow on the right signals it's interactive.
-- Tapping opens a bottom sheet — **bill uploader only** (not admin, not creator unless they are the uploader — the person who paid controls their bill).
-- Sheet contains: "Settle all" toggle at top + a per-member checkbox row (pre-ticked if `confirmedBy[uid]` is set).
-- Saving writes/removes `confirmedBy` entries accordingly — supports partial settle, full force-settle, and un-settling.
-- Notifications on save: settled → "Your portion of [bill] has been marked as confirmed by [owner name]"; un-settled → "Your portion of [bill] has been reopened by [owner name]."
-
-### Data model additions (Phase 10.2)
-- `bills/{billId}.splitwiseExpenseId?: number` — set after first successful push.
+- Per-user OAuth connect/disconnect lives in the NavDrawer. Group linking is **creator-only**.
+- Additive — the in-app final grid remains the source of truth even without Splitwise connected.
+- **Member resolution at push time**: `members/{uid}.splitwiseUserId` first (persisted after OAuth or admin-set), else email match (`splitwiseEmail` or account email) against the Splitwise group's member list. Unresolved members are omitted, not an error — uploader is warned and can proceed or cancel.
+- **Push UX** (grid screen): button sits below the table, outside the horizontal-scroll container, visible to the uploader only when a Splitwise group is linked. Error cascade before push: not connected → connect dialog; no group linked → ask the creator; bill not settled → settle first; unresolved members → resolver sheet showing who'll be included/omitted; already pushed → duplicate-expense warning (Splitwise has no idempotency — re-push is never blocked, only warned). After push, `splitwiseExpenseId` is written to the bill.
+- **Settle management**: the confirmed-members banner opens a bottom sheet (uploader-only) with a "Settle all" toggle + per-member checkboxes, supporting partial settle, force-settle, and un-settling. Each save pushes a notification to affected members.
 
 ## 9. Feature list
 
-**v1 (core, must work end to end):**
-- Google login, household setup, admin/guest roles
-- Bill upload + AI parsing + review/edit + confirm
-- Realtime select screen (checkbox + shares + locked shared charges)
-- Realtime final grid + per-person totals with correct rounding
-- PWA install on iOS/Android
-- Push notification on new bill
+**v1 (core):** Google login, household setup, roles · bill upload + AI parsing + review/edit + confirm · realtime select screen · realtime final grid with correct rounding · PWA install · push on new bill.
 
-**v1.5 (layered in right after core works):**
-- Bill history (2-week window)
-- Home dashboard ("bills needing your input")
-- Splitwise push integration
+**v1.5:** Bill history (age-based hide) · home dashboard · Splitwise push.
 
-**v2 (Phase 12 — see §15):**
-- Bill participant scoping (only intended members see a given bill)
-- Manual fallback entry (skip AI parsing, type items directly)
-- "Everyone's done" + reminder notifications (automated + manual nudge)
+**v2 (Phase 12):** Participant scoping · manual entry · completion/reminder notifications.
 
-**v2.5 (nice-to-have, build only once the above is solid):**
-- Smart defaults learned from history (e.g. auto-unchecking items you never buy)
-- Low-confidence AI flagging refinements
-- Per-bill notes (e.g. "I'm paying for the wine separately")
+**v2.5 (nice-to-have):** Smart defaults from history · low-confidence flagging refinements · per-bill notes.
 
-**Deferred/backlog (Phase 13, §15):**
-- Weekly email digest of unsettled bills
+**Deferred/backlog (Phase 13):** Weekly email digest.
 
 ## 10. Explicit non-goals
 
 - No cross-bill running balance/ledger.
 - No in-app payments/money movement.
 - No native mobile app — PWA only.
-- No multi-tenant/public product concerns (no need for scalable pricing tiers, admin dashboards for "customers," etc. — this is a household tool for ~3-4 people).
+- No multi-tenant/public product concerns.
 
 ## 11. Technical architecture & tooling decisions
 
-This section records deliberate technical choices and the reasoning behind them. Future sessions should not revisit these without a specific reason.
+Deliberate technical choices — future sessions should not revisit these without a specific reason.
 
-### PWA library: `@serwist/next` (not `next-pwa`)
-
-`next-pwa` (the `shadowwalker` package) is effectively unmaintained. `@serwist/next` is the actively maintained Workbox-based successor. Key benefit: Workbox auto-generates a typed precache manifest at `next build` time, listing every `_next/static/` asset with its content-hash filename. This replaces the need for any manual cache-busting script (cf. Meridian's `bust.py`). No manual `PRECACHE` arrays to maintain.
-
-### Service worker: Firebase endpoint exclusions (critical for realtime)
-
-The SW must never intercept Firebase traffic. Firestore realtime listeners run over a long-lived HTTP/2 stream; FCM uses its own endpoints. If the SW caches or interferes with these, realtime updates break silently. The following origins must be excluded from all SW `runtimeCaching` strategies:
-- `https://firestore.googleapis.com`
-- `https://firebase.googleapis.com`
-- `https://fcmregistrations.googleapis.com`
-- `https://identitytoolkit.googleapis.com` (Firebase Auth)
-
-Apply these as `NavigationRoute` denylists or `urlPattern` exclusions in the Serwist config.
-
-### Firestore: offline persistence
-
-Enable `persistentLocalCache()` when initialising Firestore (`initializeFirestore` with `localCache: persistentLocalCache()`). This stores Firestore data in IndexedDB so the app degrades gracefully on flaky mobile connections rather than showing empty/broken states. Writes made offline are queued and sync automatically when connectivity resumes. Enable once in `lib/firebase.ts`; no other code changes needed.
-
-### `'use client'` boundary strategy
-
-Next.js App Router server components cannot hold Firestore listeners (listeners require a browser environment). The pattern to follow throughout this codebase:
-- Page files (`app/.../page.tsx`) can be server components for layout/metadata.
-- Any component that uses a Firestore `onSnapshot` listener must be a client component (`'use client'`).
-- Auth context, Firestore hooks, and FCM registration are all client-only — keep them in `components/` or `lib/` with `'use client'` at the top.
-
-### Commit hooks: Husky + lint-staged (not `.githooks/` shell scripts)
-
-Husky's `prepare` script runs automatically on `npm install`, so hooks are active for every developer without a manual `git config` step. lint-staged runs only against staged files (fast). The hook runs:
-1. `next lint --fix` — auto-fix lint issues, fail on errors
-2. `tsc --noEmit` — fail on type errors
-
-This ensures no type-broken or lint-failing code ever lands in a commit.
-
-### Vercel API route timeout: Claude receipt parsing
-
-The Next.js API route that calls Gemini vision (Phase 2.2) may need more than Vercel's default 10s timeout for a complex receipt with many line items. `maxDuration` beyond 10s requires the paid Vercel Pro plan — the free Hobby plan caps at 10s. Since the project goal is $0 running cost, design the parsing route to fit inside Hobby's 10s limit (compress/downscale the image before sending, keep the prompt tight) rather than assuming Pro. Revisit at Phase 2.2 if parsing consistently runs long in practice.
+- **PWA library: `@serwist/next`**, not `next-pwa` (unmaintained). Auto-generates a content-hashed precache manifest at build time — no manual cache-busting needed.
+- **Service worker must never intercept Firebase traffic** — Firestore realtime listeners and FCM break silently if cached/intercepted. Excluded origins: `firestore.googleapis.com`, `firebase.googleapis.com`, `fcmregistrations.googleapis.com`, `identitytoolkit.googleapis.com`.
+- **Firestore offline persistence**: `persistentLocalCache()` in `lib/firebase.ts` — IndexedDB-backed, queues offline writes, syncs on reconnect.
+- **`'use client'` boundary**: any component using an `onSnapshot` listener must be a client component; auth context, Firestore hooks, and FCM registration all live client-side.
+- **Commit hooks: Husky + lint-staged**, not shell scripts — `prepare` script activates automatically on `npm install`. Runs `next lint --fix` + `tsc --noEmit` on staged files.
+- **Vercel API route timeout**: Gemini vision parsing must fit inside Hobby plan's 10s limit (no Pro plan) — keep images compressed and the prompt tight.
+- **Money**: always integer smallest-unit (cents for 2-decimal currencies), never floats.
 
 ## 12. UI design system (Phase 3)
 
-Everything built through Phase 2.2 (login, onboarding, household management, bill upload) is functional scaffolding, not final visual design — plain Tailwind utility classes with no shared component layer, no real typography scale, no cohesive navigation shell. Phase 3 is a dedicated pass to define and apply a real design system **before** any further feature work, so every screen built from Phase 4 onward (starting with the review/edit screen, originally 2.3) is built against a real UI standard from day one instead of retrofitting polish at the very end (the old plan deferred all of this to a "polish" step in the last phase — moved up deliberately per user request).
+**Component library: shadcn/ui** (Radix primitives + Tailwind, code copied into the repo). **Light mode only**, no dark mode — `dark:` classes and `prefers-color-scheme` handling were dropped entirely.
 
-**Scope is visual/structural only, not new data features.** No bill-listing, history, or dashboard *data* gets pulled forward — that stays in its originally-planned phase. Phase 3 restyles the screens and navigation that already exist today; later phases keep adding features, just using the components/shell this phase establishes.
+**Tokens:**
+| Token | Hex | Use |
+|---|---|---|
+| `background` | `#FAFAF9` | page background |
+| `surface` | `#FFFFFF` | cards |
+| `ink` | `#1A1A1F` | primary text |
+| `muted` | `#6B7280` | secondary/caption text |
+| `accent` | `#2E6E6E` | primary buttons, active states — used sparingly |
+| `accent-soft` | `#E3EEEE` | chip/badge backgrounds |
+| `border` | `#E5E7EB` | hairlines, card borders |
+| `success` | `#16A34A` | confirmed/settled states only |
 
-**Component library: shadcn/ui** (Radix UI primitives + Tailwind, code copied into the repo rather than an opaque npm dependency). Chosen over a hand-rolled Tailwind design system because it gives accessible, consistent primitives (buttons, inputs, cards, dialogs, nav) fast, without hand-maintaining a11y behavior (focus traps, ARIA on custom dropdowns/selects) that a small household-app project has no reason to build from scratch. It layers directly on the existing Tailwind v4 setup — no conflicting styling approach to reconcile.
+- **Typography**: Geist Sans for UI text; **Geist Mono with tabular figures, right-aligned, for every monetary amount/quantity** — reads as a ledger rather than a generic dashboard.
+- **App icon**: teal (`#2E6E6E`) rounded-square with a white "S" wordmark.
+- Accent color went through two earlier iterations (indigo → amber → teal) before landing on deep teal, chosen from mockups reviewed as a Claude Artifact.
 
-**Visual identity — revised this session (superseding the original indigo/dual-mode sketch above):**
-
-- **Light mode only, no dark mode.** Explicit user call — drop the existing Tailwind `dark:` classes and `prefers-color-scheme` handling entirely rather than reconciling them into the shadcn theme. One visual world, not two.
-- **Accent color: deep teal**, `#2E6E6E`, with a soft tint `#E3EEEE` for chips/badges/callout backgrounds. Replaces an interim amber (`#C6893A`), which itself had replaced the original indigo (`#4f46e5`) — amber read too close to mustard/too warm once live in the app; the user reviewed six candidate accents as a Claude Artifact mockup and picked deep teal. This means `public/manifest.json` `theme_color` and the `themeColor` in `src/app/layout.tsx`'s `viewport` export are `#2E6E6E` (already updated).
-- **Full light-mode token set** (background/surface/text, not just the accent):
-  | Token | Hex | Use |
-  |---|---|---|
-  | `background` | `#FAFAF9` | page background (warm paper-white, not stark white) |
-  | `surface` | `#FFFFFF` | cards |
-  | `ink` | `#1A1A1F` | primary text |
-  | `muted` | `#6B7280` | secondary/caption text |
-  | `accent` | `#2E6E6E` | primary buttons, active tab, selected states — used sparingly, not as a background fill |
-  | `accent-soft` | `#E3EEEE` | chip/badge backgrounds, "your share" callout background |
-  | `border` | `#E5E7EB` | hairlines, card borders |
-  | `success` | `#16A34A` | confirmed/settled states only (semantic, not the brand accent) |
-- **Typography**: Geist Sans/Mono (already the `create-next-app` default, already wired into `layout.tsx`). Phase 3 adds a real type scale (display/heading/body/caption sizes with consistent line-height/weight) instead of ad hoc `text-sm`/`text-2xl` choices per page.
-- **Signature treatment — money in mono.** Every monetary amount and quantity (item prices, shares, totals) renders in **Geist Mono with tabular figures, right-aligned** — distinct from Geist Sans used for all other UI text. Reads as a ledger/receipt rather than a generic dashboard; tabular figures also keep columns aligned in the future selection grid (Phase 5/6). Item lists get a **dashed divider** above the tax/tip/total rows, echoing a paper receipt's cut line — the one deliberate skeuomorphic nod, used once, not repeated elsewhere.
-- **App icon**: `public/icon-192.png`/`icon-512.png` are a deep teal (`#2E6E6E`) rounded-square icon bearing a bold white/paper-white "S" wordmark.
-
-**Navigation shell**: a persistent mobile-first bottom tab bar (Home / Bills / Household), since this is a PWA primarily installed to a phone home screen — replacing today's inline, ad hoc links (e.g. "Manage household" as a plain text link on the home page). Each tab gets its own line icon, not a generic placeholder block: **house** (Home), **receipt** (Bills — rectangle with a jagged/torn bottom edge and a few horizontal lines, matching the ledger motif), **people** (Household — two overlapping figures). Active tab tinted with the accent (icon + label), inactive tabs muted gray. Applies to every authenticated route; the login/onboarding screens (pre-household) stay shell-less since there's nothing to navigate to yet.
-
-A confirmed visual reference (mockups reviewed and approved this session) exists as a Claude Artifact; ask the user if it's still needed since it's not checked into the repo.
-
-**Phase 3 build order** (see `ROADMAP.md` for the exact steps): design tokens + base primitives first (no visible page changes), then the shared app shell (with the tab icons above), then restyle each existing screen against it (auth/onboarding → home/household → bill upload), then swap the app icon PNGs.
-
-### Push notifications: iOS version requirement confirmed
-
-FCM push notifications require iOS 16.4+ with the PWA installed to the home screen (not running in Safari). All household members are confirmed on iOS 17 or iOS 18 (devices from 2024 or later), so this requirement is met. No fallback needed for older iOS.
-
-### Money: integer cents throughout
-
-All monetary values in Firestore and in calculation functions are stored and handled as **integer cents** (e.g. `$12.50` → `1250`). Never use floats for money. The split calculation module (Phase 4.2) handles rounding remainders to ensure the sum of all per-person totals equals the bill total exactly.
+**Navigation shell** (superseded by Phase 9's top-bar redesign, §14): originally a bottom tab bar (Home / Bills / Household).
 
 ## 13. Multi-household architecture (Phase 8)
 
-Originally deferred (see the Phase 1.5 progress note) as a foundational data-model change not worth retrofitting mid-stream. Revisited once Phases 1-7 were far enough along to see the actual coupling surface, which turned out to be narrow: every Firestore rule already gates access per-household via the `households/{id}/members/{uid}` subcollection (never via the `users/{uid}` doc), and every data-fetching hook in `src/lib/household.ts` except `useUserHousehold` already takes `householdId` as an explicit parameter rather than reading a global singleton. So multi-household support is additive routing + a data-shape change, not a rewrite of the household/bill/selection logic already built.
-
-**Data model: `users/{uid}.householdIds: string[]`, not a `users/{uid}/households/{id}` subcollection.** At this project's scale, a user belongs to at most a handful of households and the only access pattern is "give me all of them at once" for a picker screen — never an independent query or filter across households. An array field is a single listener call and needs zero `firestore.rules` changes (the existing `users/{userId}` rule — self-read/write only — already permits rewriting the whole doc). A subcollection would only pay off if querying/filtering households independently mattered, which it doesn't here.
-
-**Routing: `/households/[householdId]/...`.** Today's flat routes (`/`, `/bills/new`, `/household`) assume exactly one global household context. Phase 8 nests them under a household id segment so every screen is explicitly scoped to the household the URL names — this also plays well with future deep links (e.g. a push notification landing on a specific bill within a specific household). A new picker/landing screen at `/households` lists all of a user's households (reusing the existing create/join UI); a user in exactly one household is routed straight into it, preserving today's zero-friction single-household experience.
-
-**Why Phase 8, not earlier or later:** inserted right before the (renumbered) Phase 9 "History & dashboard," because that dashboard is exactly the screen a household picker needs to sit in front of. Building the picker as its own phase first means the dashboard gets built once, correctly, against a picker that already exists — rather than being built single-household in an earlier phase and reworked later once multi-household lands.
+`users/{uid}.householdIds: string[]` (not a subcollection) — at this project's scale a user belongs to a handful of households at most and the only access pattern is "give me all of them at once," so a single array field with no extra rules changes was sufficient. Routing nests under `/households/[householdId]/...`; a picker screen lists all of a user's households, auto-entering if there's exactly one. Built as its own phase (before Phase 9's dashboard) so the dashboard could be built once against a picker that already existed.
 
 ## 14. Navigation shell redesign (Phase 9)
 
-**Supersedes the original Phase 8/9 visual spec** (bottom-tab + FAB design, artifact at https://claude.ai/code/artifact/74fc0773-2d4b-43af-aedb-2b78e0920268). The design was rethought in the Phase 8 session and replaced with the spec below. Every choice stays within the existing token system (§12).
+Replaced the Phase 3 bottom tab bar with a top-bar + hamburger drawer pattern (more standard, frees vertical space).
 
-### Core navigation pattern
-
-**Remove the bottom tab bar entirely.** Replace with a top-bar + hamburger drawer pattern — more professional, standard across mobile apps, and frees up vertical screen space for content.
-
-### Top bar (all authenticated screens)
-
-```
-┌──────────────────────────────────────┐
-│  Splitly                         ≡  │
-└──────────────────────────────────────┘
-```
-
-- **Left: "Splitly" wordmark** — always a link to `/households` (the household picker). No logo mark next to it ("S Splitly" was explicitly rejected as cluttered).
-- **Right: hamburger `≡`** — opens a slide-out drawer (see below). Present on all household screens. Absent on the picker screen (see Picker section below).
-- Top bar background: `#FAFAF9` (same as page background), with a subtle 1px bottom border.
-
-### Liquid glass home button (inner screens only)
-
-On any screen that is **inside a household but not the household home** (i.e. bill review, item select, final grid), a liquid glass pill appears **directly below the top bar on the left**, sitting just under the "Splitly" wordmark:
-
-```
-┌──────────────────────────────────────┐
-│  Splitly                         ≡  │
-│  [← ⌂]                              │  ← liquid glass pill
-├──────────────────────────────────────┤
-│         page content                 │
-└──────────────────────────────────────┘
-```
-
-- **Icon content**: left arrow (`←`) + house icon (`⌂`) — arrow signals "go back", house signals "to home", together unambiguous.
-- **Destination**: always the household home page (`/households/[householdId]`), never browser history back.
-- **Absent on**: the household home page itself (circular), the picker, onboarding, login.
-- **Liquid glass CSS**: `background: rgba(255,255,255,0.55); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 2px 8px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.6); border-radius: 999px;`
-
-### Hamburger drawer (household screens only)
-
-Slides in from the right. Contents:
-
-```
-  [Household name]        ×   ← non-clickable header
-  ─────────────────────────
-  ⌂  Home
-  ⚙  Manage                   ← admins and creators only, hidden for guests
-  ─────────────────────────
-  ⇄  Switch Household
-  ↪  Sign out
-```
-
-- "Home" → `/households/[householdId]`
-- "Manage" → `/households/[householdId]/household` — only rendered if `member.role === "admin"` (which covers creators too since their role field is also `"admin"`)
-- "Switch Household" → `/households`
-- "Sign out" → Firebase `signOut()`
-
-### Picker screen header (no hamburger)
-
-On `/households` (the picker), the hamburger is replaced with a simple sign-out icon in the top right — the only action available at this level is signing out, so a drawer would be overkill.
-
-```
-┌──────────────────────────────────────┐
-│  Splitly                        [↪]  │  ← sign-out icon, no hamburger
-└──────────────────────────────────────┘
-```
-
-### Household home page
-
-- **No top-bar FAB** — the upload action lives as a floating action button (FAB) at bottom-right of the household home page only.
-- **FAB**: teal (`#2E6E6E`) circle, camera icon, `box-shadow: 0 4px 18px rgba(46,110,110,0.45)`, fixed bottom-right. Taps to `/households/[householdId]/bills/new`.
-- **Bills feed**: scrollable list of bill cards (see §14 Bills feed section below). Empty state when no bills exist.
-
-### Bills feed (household home, Phase 9.1)
-
-Scrollable feed of all bills for the current household, newest first. Three visual sections with uppercase 10px section labels:
-
-| Section | Left stripe | Condition |
-|---|---|---|
-| **Needs your input** | Amber `#D97706` | `status === "open"` and current user has not yet confirmed selections |
-| **In progress** | Gray `#D1D5DB` | `status === "open"` and current user confirmed but others haven't |
-| **Settled** | Teal `#2E6E6E` | All members confirmed |
-
-**Bill card anatomy** (white bg, 1px `#E5E7EB` border, 16px radius, 4px left stripe, tap → scale(0.975)):
-
-```
-[4px stripe] | Merchant name (14px, 700)          Jul 15
-             | $94.50   ← 28px Geist Mono, letter-spacing -1px (hero element)
-             | [status pill]  ← amber/gray/teal tinted pill, 10.5px, 700
-             | Uploaded by Meera  ← 11.5px muted
-             | [A] [M] [S] [R]  ← 28px member chips
-```
-
-Amount color: `#1A1A1F` when open/in-progress, `#2E6E6E` teal when settled.
-
-"Your share" line (Geist Mono, 11.5px, `#6B7280`) shown only on settled bills — only certain once everyone has confirmed.
-
-**Member chip colors:**
-| State | Background | Text |
-|---|---|---|
-| Confirmed (others) | `#2E6E6E` | `#FFFFFF` |
-| Confirmed (you) | `#2E6E6E` + 2px `#1A4F4F` outline ring | `#FFFFFF` |
-| Pending (others) | `#F1F0EE` | `#9CA3AF` |
-| Pending (you) | `#FEF3C7` + 1.5px `#FDE68A` outline | `#D97706` |
+- **Top bar**: "Splitly" wordmark (links to the household picker) on the left, hamburger `≡` on the right, on all authenticated screens.
+- **Liquid glass `← ⌂` pill**: appears below the top bar, left-aligned, on any screen inside a household but not the household home (bill review/select/grid) — always navigates to household home, never browser back.
+- **Hamburger drawer**: Home / Manage (admin+creator only) / Switch Household / Sign out.
+- **Picker screen**: hamburger replaced with a plain sign-out icon (only action available at that level).
+- **Household home**: bills feed (see below) + a floating camera FAB (teal, bottom-right) linking to bill upload.
+- **Bills feed**: three sections — Needs your input (amber) / In progress (gray) / Settled (teal) — each bill card shows merchant name, amount (mono, hero-sized), status pill, uploader, member chips. Member chip colors distinguish confirmed/pending and self/others.
 
 ## 15. Participant scoping, manual entry & completion notifications (Phase 12)
 
-### Participant scoping
+- **Participant scoping**: `bills/{billId}.participantIds` set at upload (pre-checked checklist, uploader unchecks anyone not involved); Firestore rules and the home feed both gate on it instead of plain household membership. Add/remove after creation is uploader-only, from the grid page's "Manage participants," staged like the settle sheet (nothing writes until Save). Removing a member is blocked if they've already made any non-default selections — the uploader can already override their picks via Phase 6.4 instead.
+- **Manual entry**: `/bills/new` gained an "Enter manually" path that skips Gemini entirely and feeds the same shape into the existing review/confirm flow.
+- **Notifications**: everyone's-done (push to uploader) · automated reminders (24h then every 72h, capped at 3, tracked per-member on the bill doc) · manual "remind" nudge (uploader-triggered, rate-limited to 24h/bill).
+- **Explicitly deferred (13.1)**: weekly email digest — would add an external email dependency against the project's $0-cost default; push already covers the same need.
 
-Today every bill is visible to and actionable by every household member. Phase 12 scopes each bill to an explicit subset (`participantIds`), because in a household of 3-4 not everyone is in on every purchase.
-
-- **At upload:** `/bills/new` shows a pre-checked checklist of all household members; the uploader unchecks anyone not involved. `bills/{billId}.participantIds: string[]` is written at creation — the uploader is always included. Home feed queries and `firestore.rules` (`read`/`update`/`delete` on `bills/{billId}` and its `items`/`sharedCharges` subcollections) gate on `request.auth.uid in resource.data.participantIds` rather than plain household membership.
-- **Where:** a single "Manage participants" entry point on the **grid** page only (not review/select — grid is already the bill's management hub: settle sheet, uploader overrides, Splitwise push all live there). Staged like the settle sheet — checkbox taps only update local state; nothing writes or notifies until "Save" is tapped, then the diff between old/new participant lists drives one `participantIds` write.
-- **Adding:** uploader-only (not admin — ownership of the bill, not household role, controls this). Checking a not-yet-included member and saving appends their uid to `participantIds`, making the bill immediately visible/actionable to them.
-- **Removing:** uploader-only, and only permitted while that member's selections are still fully at default (`included: true, shares: 1` on every item, and they haven't hit Confirm — i.e. no `confirmedBy` entry and no `selections[uid]` on any item). If they've interacted, block removal with a warning-styled dialog (amber border, `AlertTriangle` icon): *"[Name] has already made selections on this bill. Ask them to either reset their picks, or clear their selections yourself."* (the uploader can already edit any member's selections via the Phase 6.4 grid override, so this isn't a dead end).
-- **Add/remove notifications:** each change pushes the affected member directly (not the whole household) — added → "[Owner] added you to '[bill]' — tap to select your items"; removed → "[Owner] removed you from '[bill]'". Reuses the FCM send path, new route `/api/notify-participant-change`.
-
-### Manual entry
-
-`/bills/new` gains a second path alongside camera/file-picker: "Enter manually." Skips the Gemini call entirely; the uploader types item name + price rows in the same shape the parser would have produced, then flows into the existing review/confirm screens unchanged — nothing downstream (review, select, grid, Splitwise push) needs to know or care which path created the bill.
-
-### Completion & reminder notifications
-
-Three distinct notification triggers, all reusing the Phase 7 FCM send path:
-
-1. **Everyone's done** (12.4): when the last participant (per `participantIds`, uploader included if they're a participant themselves) flips their Phase 5.4 "confirm my selections" indicator, push the uploader: *"Everyone's made their picks on [bill name] — check the final split."*
-2. **Automated reminders** (12.5): a Vercel cron (`/api/cron/remind-bills`, hourly, `CRON_SECRET`-gated) nudges any participant (excluding the uploader) who hasn't confirmed on an `open` bill. Cadence, tracked per-member on the bill doc (`reminders.{uid}: { count, lastSentAt }`): first nudge at 24h after the bill opened, then every 48h after, capped at 3 total — chosen to be noticeable without becoming spam; after the cap that member goes quiet until they act or get a manual nudge.
-3. **Manual nudge** (12.6): a "Remind everyone" action inside the confirmed-members banner, uploader-only, pushes all not-yet-confirmed participants on demand. Rate-limited to once per 24h per bill via `bills/{billId}.lastManualReminderAt`, so it can't be used to spam the household; the button shows a "remind again in Xh" disabled state during cooldown.
-
-**Explicitly deferred (Phase 13.1): weekly email digest.** Would need a new external email-sending dependency (nothing in the current stack sends email), which cuts against the project's $0-running-cost default. Push already covers "you still owe a response" for installed PWAs. Revisit only if push proves insufficient in practice.
-
-### Data model additions (Phase 12)
-
-```
-bills/{billId}
-  participantIds: string[]              // subset of household members this bill applies to; uploader always included
-  lastManualReminderAt: timestamp | null // rate-limits the manual "Remind everyone" action to 1/24h
-  reminders: {
-    [userId]: { count: number, lastSentAt: timestamp }  // automated cron reminder state, per non-uploader participant
-  }
-```
+Data model additions: `bills/{billId}.participantIds`, `.lastManualReminderAt`, `.reminders.{userId}: { count, lastSentAt }`.
 
 ## 16. Multi-currency support (Phase 14)
 
-Motivated by a possible future Android distribution — households outside the US need bills in their own currency. Modeled on how Splitwise itself handles this: **currency lives on the expense (bill), not the group (household), and there is no conversion.** Splitwise's group-level "default currency" is purely a UI prefill for the next expense; balances across differing currencies are shown separately, never merged. This maps cleanly onto Splitly because bills are already self-contained with no cross-bill ledger (§10 non-goals) — there is no mixed-balance problem to solve.
+Modeled on Splitwise itself: **currency lives on the bill, not the household, and there is no conversion.** A household with bills in two currencies just has bills in two currencies — nothing sums across them, matching the existing no-cross-bill-ledger design (§10).
 
-**Explicitly not building:** exchange-rate lookups, rate-locking, or any cross-currency conversion/aggregation. A household with bills in two currencies simply has bills in two currencies; nothing sums across them.
-
-### Determining a bill's currency
-
-Prefill chain, most-confident signal first — always shown in an editable picker on the review screen regardless of which tier filled it, never silently locked:
-
-1. **Gemini reads it off the receipt itself** (currency symbol/code, store locale) — added as a field on the existing structured-JSON parsing schema (Phase 2.2's call), no new API request.
-2. Falls back to the **household's most-recently-created bill's currency**.
-3. Falls back to `households/{householdId}.defaultCurrency` — only relevant for a household's very first bill.
-4. Hardcoded `"USD"` if nothing else resolves.
-
-`households/{householdId}.defaultCurrency` is set once, at household creation, derived from the creator's device locale (`navigator.language` region code, e.g. `en-IN` → `IN`) via a small static ISO-3166-region → ISO-4217-currency lookup table — no network call, no paid API, consistent with the $0-cost project goal (§11). Editable later from the manage-household screen if wrong. Computed once at creation rather than freshly per-bill, since a household's country doesn't change bill-to-bill.
-
-### Where it's edited
-
-The bill review screen (`src/app/groups/[groupId]/bills/[billId]/review/page.tsx`) — already the "correct what Gemini got wrong" step for items/tax/tip/service-charge. A currency picker sits in the header block near the restaurant/store name (next to `bill.restaurantOrStoreName`, currently ~line 204), showing symbol + code (e.g. "$ USD"), pre-filled per the chain above, editable before Confirm. Once confirmed, `bills/{billId}.currency` is fixed for that bill's lifetime — every downstream screen (select, grid, Splitwise push) treats it as immutable.
-
-This also requires de-hardcoding the two literal `$` prefix characters already on that screen — the item-price input (~line 239) and the shared shared-charges Tax/Tip/Service-charge inputs (~line 290, used by all three via one `.map()`) — to instead render the selected currency's symbol. The select/grid screens likely have their own hardcoded `$` for final totals; needs a grep at implementation time rather than assuming these two spots are the only ones.
-
-### Display: real symbols, not codes
-
-`Intl.NumberFormat(locale, { style: 'currency', currency: bill.currency, currencyDisplay: 'narrowSymbol' })` renders the actual glyph (₹, €, £, ¥) automatically for any ISO 4217 code — no separate symbol lookup table needed. `narrowSymbol` (not the default `'symbol'`) is used specifically to avoid country-prefixed forms like `"US$"`, since a bill only ever displays one currency at a time and there's nothing to disambiguate against.
-
-### Money storage: generalizing the "integer cents" rule
-
-The locked decision "money is always integer cents" (§11) assumed every currency has 2 decimal places, which is false — JPY/KRW have 0 minor-unit digits, KWD/BHD have 3. This becomes: **integer smallest-unit for that currency's own minor-unit exponent**, via a small ISO 4217 → minor-unit-exponent lookup table. All money parsing/formatting/summation utilities need to read this table per-bill instead of assuming `× 100` everywhere.
-
-**Backward compatibility:** bills already live in production without a `currency` field. No backfill migration — any read of a bill missing `currency` treats it as `"USD"` (matching the implicit behavior so far).
-
-### Splitwise push
-
-Splitwise's expense-creation API takes a `currency_code` param per expense, independent of the group's own default currency — so the existing push (Phase 10.2) just passes `bill.currency`. **Unverified assumption, needs a docs check at implementation time**: confirm the Splitwise API actually accepts an arbitrary currency per expense regardless of what currency the linked Splitwise group defaults to, rather than requiring the group to "support" it first.
-
-### Open risk / surface area
-
-Not a hard blocker, but the bulk of the implementation work is mechanical breadth, not complexity: every screen currently displaying money (bill card, review, select, grid, dashboard totals) needs its formatting switched from a hardcoded `$`/cents assumption to `bill.currency`-aware formatting.
+- **Determining a bill's currency** (fallback chain, always shown in an editable picker, never silently locked): Gemini reads it off the receipt → household's most-recently-created bill's currency → `households/{id}.defaultCurrency` (set once at creation from device locale, no network call) → hardcoded `"USD"`.
+- **Editing**: the bill review screen's currency picker; immutable once confirmed.
+- **Display**: `Intl.NumberFormat(locale, { currencyDisplay: 'narrowSymbol' })` — no separate symbol lookup table needed.
+- **Storage**: generalized "integer cents" to "integer smallest-unit for that currency's minor-unit exponent" via an ISO 4217 lookup table (JPY/KRW = 0 decimals, KWD/BHD = 3). Bills missing a `currency` field (pre-Phase-14) default to `"USD"`, no backfill needed.
+- **Splitwise push**: sends `bill.currency` as `currency_code` — Splitwise's API accepts a per-expense currency independent of the group's own default (confirmed working in practice).
 
 ## 17. Account deletion (Phase 15) — discussion only, not yet designed or built
 
