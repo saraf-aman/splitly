@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CircleUserRound, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { setProfileReturnPath } from "@/lib/profileReturn";
 
 interface Props {
   isOpen: boolean;
@@ -75,7 +76,10 @@ export function PickerNavDrawer({ isOpen, onClose }: Props) {
 
         <nav className="flex flex-col gap-0.5 p-3">
           <button
-            onClick={() => nav("/profile")}
+            onClick={() => {
+              setProfileReturnPath("/groups");
+              nav("/profile");
+            }}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
             {user?.photoURL ? (

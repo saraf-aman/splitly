@@ -21,6 +21,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useGroup, useMembers, leaveGroup } from "@/lib/group";
 import { useSplitwiseStatus, saveGroupSplitwise, clearGroupSplitwise } from "@/lib/splitwise";
+import { setProfileReturnPath } from "@/lib/profileReturn";
 
 interface SwGroup {
   id: number;
@@ -248,7 +249,10 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
         {/* Primary nav */}
         <nav className="flex flex-col gap-0.5 p-3">
           <button
-            onClick={() => nav("/profile")}
+            onClick={() => {
+              setProfileReturnPath(`/groups/${householdId}`);
+              nav("/profile");
+            }}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
             {user?.photoURL ? (
@@ -347,7 +351,7 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
                     </div>
                   ) : (
                     /* Group is linked — show name to everyone, owner gets unlink */
-                    <div className="mx-1 mt-0.5 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
+                    <div className="mx-1 mt-0.5 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2">
                       {swMembership === "checking"
                         ? <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" />
                         : <CheckCircle size={12} className="shrink-0 text-emerald-600" />}

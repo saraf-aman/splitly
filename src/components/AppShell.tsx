@@ -1,12 +1,22 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavDrawer } from "@/components/NavDrawer";
 import { PickerNavDrawer } from "@/components/PickerNavDrawer";
 import { OfflineBanner, OFFLINE_BANNER_H } from "@/components/OfflineBanner";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
+import { getProfileReturnPath } from "@/lib/profileReturn";
+
+// Never changes during a mount, so subscribe is a no-op — this just gets us
+// a client-only sessionStorage read without the set-state-in-effect penalty.
+function subscribeNoop() {
+  return () => {};
+}
+function getServerProfileReturnPath() {
+  return "/groups";
+}
 
 const SHELLLESS_PATHS = ["/login", "/onboarding", "/privacy", "/terms", "/data-deletion"];
 const PICKER_PATH = "/groups";
@@ -29,6 +39,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isPicker = pathname === PICKER_PATH;
   const isHouseholdHome = !!hhId && pathname === `/groups/${hhId}`;
   const isInnerScreen = !!hhId && !isHouseholdHome;
+  const isProfile = pathname === "/profile";
+
+  // On /profile there's no hhId to derive a logo target from — fall back to
+  // wherever the drawer that opened it recorded as the origin (a household
+  // or the picker).
+  const profileReturnPath = useSyncExternalStore(
+    subscribeNoop,
+    getProfileReturnPath,
+    getServerProfileReturnPath,
+  );
+
+  const logoHref = hhId
+    ? `/groups/${hhId}`
+    : isProfile
+      ? profileReturnPath
+      : `${PICKER_PATH}?picker=1`;
 
   if (isShellLess) {
     return (
@@ -59,7 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           style={{ height: NAV_H }}
         >
           <Link
-            href={hhId ? `/groups/${hhId}` : `${PICKER_PATH}?picker=1`}
+            href={logoHref}
             className="text-foreground"
             style={{ fontSize: "1.15rem", fontWeight: 700, letterSpacing: "-0.04em" }}
           >

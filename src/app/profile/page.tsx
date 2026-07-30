@@ -119,13 +119,13 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 bg-background px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-      <Link
-        href="/groups"
+      <button
+        onClick={() => router.back()}
         className="-mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground"
       >
         <ArrowLeft size={15} />
         Back
-      </Link>
+      </button>
 
       <h1 className="text-heading text-foreground">Profile</h1>
 
@@ -255,7 +255,7 @@ export default function ProfilePage() {
             </Label>
             <Input
               id="confirm-email"
-              className="border-border bg-card dark:bg-card"
+              className="border-border bg-card"
               value={confirmEmail}
               onChange={(e) => setConfirmEmail(e.target.value)}
               disabled={deleting}

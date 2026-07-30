@@ -389,7 +389,7 @@ export default function GroupManagePage() {
             </Label>
             <Input
               id="confirm-group-name"
-              className="border-border bg-card dark:bg-card"
+              className="border-border bg-card"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               disabled={deleting}
