@@ -319,16 +319,20 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
         <div className="mx-3 border-t border-border" />
 
         {/* Splitwise section — personal connect/disconnect lives on /profile now;
-            this only covers the household-level group link (creator-only). */}
-        {!swLoading && (swConnected || isCreator) && (
+            this only covers the household-level group link (creator-only). Always
+            shown (not just for creators) so a disconnected member still has a
+            pointer to where the personal connect toggle went. */}
+        {!swLoading && (
           <div className="flex flex-col gap-1 px-3 py-3">
             <p className="mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Splitwise
             </p>
 
-            {!swConnected && isCreator && (
+            {!swConnected && (
               <p className="px-3 text-xs text-muted-foreground">
-                Connect Splitwise in your Profile to link this group.
+                {isCreator
+                  ? "Link your Splitwise account from Profile to connect this group."
+                  : "Link your Splitwise account from Profile."}
               </p>
             )}
 
