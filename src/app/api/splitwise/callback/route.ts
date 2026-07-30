@@ -111,12 +111,14 @@ async function handleCallback(req: NextRequest) {
     return redirectTo(`${dest}?sw_error=user_fetch`);
   }
 
-  const { user } = (await userRes.json()) as { user: { id: number } };
+  const { user } = (await userRes.json()) as { user: { id: number; email: string } };
 
-  // Persist token + Splitwise user ID on the Firebase user doc
+  // Persist token + Splitwise user ID/email on the Firebase user doc
   const userRef = db.collection("users").doc(uid);
   await userRef.set(
-    { splitwise: { accessToken: access_token, splitwiseUserId: user.id } },
+    {
+      splitwise: { accessToken: access_token, splitwiseUserId: user.id, email: user.email },
+    },
     { merge: true },
   );
 

@@ -2,16 +2,13 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { clearLastGroupId } from "@/lib/group";
+import { usePathname } from "next/navigation";
 import { NavDrawer } from "@/components/NavDrawer";
+import { PickerNavDrawer } from "@/components/PickerNavDrawer";
 import { OfflineBanner, OFFLINE_BANNER_H } from "@/components/OfflineBanner";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
 
-const SHELLLESS_PATHS = ["/login", "/onboarding"];
+const SHELLLESS_PATHS = ["/login", "/onboarding", "/privacy", "/terms", "/data-deletion"];
 const PICKER_PATH = "/groups";
 
 // Nav height matches Meridian: 62px
@@ -21,7 +18,6 @@ const PILL_H = 52;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isOnline = useOnlineStatus();
   const offlineOffset = isOnline ? 0 : OFFLINE_BANNER_H;
@@ -33,12 +29,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isPicker = pathname === PICKER_PATH;
   const isHouseholdHome = !!hhId && pathname === `/groups/${hhId}`;
   const isInnerScreen = !!hhId && !isHouseholdHome;
-
-  async function handleSignOut() {
-    clearLastGroupId();
-    await signOut(auth);
-    router.replace("/login");
-  }
 
   if (isShellLess) {
     return (
@@ -76,18 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Splitly
           </Link>
 
-          {isPicker && (
-            <button
-              onClick={handleSignOut}
-              aria-label="Sign out"
-              className="text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              style={{ width: 36, height: 36, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center" }}
-            >
-              <LogOut size={16} />
-            </button>
-          )}
-
-          {hhId && (
+          {(isPicker || hhId) && (
             // Custom hamburger spans — thinner and more refined than Lucide Menu icon
             <button
               aria-label="Open menu"
@@ -116,6 +95,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClose={() => setDrawerOpen(false)}
           />
         </Suspense>
+      )}
+
+      {isPicker && (
+        <PickerNavDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import Link from "next/link";
 import { useState } from "react";
 import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,18 @@ export default function LoginPage() {
         {signingIn ? "Signing in..." : "Sign in with Google"}
       </Button>
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        By continuing, you agree to our{" "}
+        <Link href="/terms" className="underline">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </div>
   );
 }

@@ -191,19 +191,51 @@ Modeled on Splitwise itself: **currency lives on the bill, not the household, an
 - **Storage**: generalized "integer cents" to "integer smallest-unit for that currency's minor-unit exponent" via an ISO 4217 lookup table (JPY/KRW = 0 decimals, KWD/BHD = 3). Bills missing a `currency` field (pre-Phase-14) default to `"USD"`, no backfill needed.
 - **Splitwise push**: sends `bill.currency` as `currency_code` — Splitwise's API accepts a per-expense currency independent of the group's own default (confirmed working in practice).
 
-## 17. Account deletion (Phase 15) — discussion only, not yet designed or built
+## 17. Account deletion (Phase 15)
 
-Raised alongside the currency work, deliberately deferred until currency shipped. Nothing below is built — this section captures the discussion so a future session (possibly a fresh one) has the context without re-deriving it.
+Raised alongside the currency work, deliberately deferred until currency shipped.
 
 **Driver: Google Play Store compliance, not a user feature request.** Google Play requires apps that support account creation to also offer (a) an in-app flow to delete the account and its data, and (b) a policy describing what gets deleted, reachable from a public place outside the app (e.g. a web page, no login required) — not just from inside a logged-in session. This becomes relevant once the app is wrapped for Android distribution (see `docs/ANDROID_APP.md`), but the in-app flow itself doesn't depend on the Android wrapper existing yet.
 
-**The hard part is the household model, not the deletion mechanics.** A plain guest or non-creator admin can delete their own account cleanly: leave every household they're in (existing `leaveGroup` self-service pattern, Phase 8.2), delete their `users/{uid}` doc, delete the underlying Firebase Auth user. A **creator** is the problem — they're a permanent super-admin who can't be removed from their own household except as the final step of that household's full deletion (`docs/CLAUDE.md` roles section; `deleteGroup` in `src/lib/group.ts`). So "delete my account" while still being a creator of one or more households needs an explicit decision.
+**The hard part is the household model, not the deletion mechanics.** A plain guest or non-creator admin can delete their own account cleanly: leave every household they're in, delete their `users/{uid}` doc, delete the underlying Firebase Auth user. A **creator** is the problem — they're a permanent super-admin who can't be removed from their own household except as the final step of that household's full deletion (`docs/CLAUDE.md` roles section; `deleteGroup` in `src/lib/group.ts`).
 
-**Leaning discussed (not finalized): block, don't cascade.** If the user is the creator of any household, block account deletion with a clear message pointing them at deleting that household first (reusing the existing typed-name-confirmation `deleteGroup` flow from `docs/CLAUDE.md`'s roles section) — rather than silently cascading the household deletion as a side effect of account deletion. Rationale discussed: household deletion is already the single most destructive action in the app (wipes all members/bills/data for everyone, not just the deleter), and auto-cascading it from a different, less-obviously-scoped action ("delete my account") risks surprising other household members. Blocking with a clear next step keeps that destructive path singular and explicit.
+### Creator/owner scenario — decided and built
 
-**Not yet discussed / open for the next session:**
-- Exact UI location for the "Delete account" entry point (likely near "Sign out" in `NavDrawer`, going by existing patterns).
-- Exact confirmation UX (typed-name-style like household deletion, or lighter).
-- What "delete the account" does to the Firebase Auth user record itself (client-side `user.delete()` vs. an Admin SDK route) vs. just the Firestore `users/{uid}` doc + household member docs.
-- The public policy page itself — content, route, and whether it needs to exist before an Android submission or can be built alongside the in-app flow.
-- Whether `fcmTokens` cleanup needs anything beyond what deleting the `users/{uid}` doc already handles.
+Landed on **silent auto-transfer, block only as a last resort** — deliberately not the "block, don't cascade" framing this section originally leaned toward; that framing was borrowed from `deleteGroup`'s guardrails without questioning whether it actually fit a different action. The reasoning that won out: forcing a departing user to manually resolve/destroy a shared household just to delete their own account produces worse outcomes in practice (abandoned accounts, permanently zombie creators) than quietly reassigning a piece of ownership metadata to someone already in the household. Matches how GitHub/Slack/Google Workspace handle a departing org owner — reassign automatically, only block when there's truly no one left.
+
+**Eligibility rule** (`findSuccessor` in `src/app/api/account/delete/route.ts`), checked per owned household:
+1. Another **admin** exists (excluding the departing user) → transfer `createdBy` to the longest-tenured one (earliest `addedAt`).
+2. No other admin, but a **guest** exists → promote the longest-tenured guest to `role: "admin"` *and* transfer `createdBy` to them.
+3. No other members at all → blocked. Nothing to hand off to.
+
+**All-or-nothing, checked before any writes**: every owned household's eligibility is resolved first; if even one is blocked, the route does nothing and returns 409 with only the genuinely-blocked households. This avoids a blocked attempt silently reassigning ownership of a household the user didn't intend to touch — same "no surprising side effects from a blocked action" reasoning as `deleteGroup`'s block-not-cascade decision.
+
+**Fully silent, both tiers** — no advance per-household preview of who becomes the new owner, no acceptance step for the new owner. Explicit user call: an admin→admin transfer isn't a bigger unilateral power than admin already has (an admin can already promote/demote other guests unilaterally); the guest→admin case is a bigger trust jump in principle, but still kept silent for simplicity rather than adding a preview/consent flow.
+
+No `firestore.rules` change was needed — the transfer writes go through `firebase-admin`, which bypasses Firestore rules by design; the rules-level "creator can't be changed" lock in `docs/CLAUDE.md` only ever restricted *client* writes. That invariant's wording was updated to document this as a deliberate second exception (see the roles section) rather than leaving it looking absolute.
+
+### Shipped this session (nav reshuffle + most of the in-app flow)
+
+While designing this, we noticed the personal Splitwise connect/disconnect toggle was oddly placed — it's per-user, not per-household, but lived inside the household-scoped `NavDrawer`. Used the account-deletion work as the reason to also introduce a proper account-level home for it:
+
+- **New `/profile` route** (`src/app/profile/page.tsx`), not household-scoped. Contains: account header (Google avatar/name/email, read-only), a Splitwise card (connect/disconnect — moved wholesale out of `NavDrawer`), Sign out, and Delete account.
+- **`NavDrawer` changes**: added a "Profile" row above "Home" (uses the user's Google avatar as its icon, falls back to `CircleUserRound`). Removed the personal Splitwise connect/disconnect block and the Sign out button entirely (both now live only on `/profile`). The household-level Splitwise **group link** (creator-only — linking *this household* to a Splitwise group) stays in `NavDrawer`, since that's genuinely household-scoped; it's now gated on `swConnected || isCreator` so a disconnected creator still sees a hint ("Connect Splitwise in your Profile to link this group") instead of the section just vanishing.
+- **Delete account entry point**: deliberately a plain text button, same visual weight as "Sign out" — *not* a permanently-visible "Danger zone" card like household deletion (`src/app/groups/[groupId]/group/page.tsx`) has. Clicking it expands an inline confirm (same collapse/expand pattern as `NavDrawer`'s "Leave Group"), which requires typing the user's own email to enable the destructive button. Lighter-weight than household deletion's typed-name confirmation was judged appropriate since this only destroys the acting user's own data.
+- **`POST /api/account/delete`** (`src/app/api/account/delete/route.ts`), following the existing `firebase-admin` + bearer-token-verification pattern used by `DELETE /api/bills/[billId]`. Server-side (not client `user.delete()`, to avoid `requires-recent-login` reauth-popup handling): looks up the caller's `householdIds`, checks whether they're `createdBy` on any of them (409 + list if so — nothing is deleted), otherwise deletes their member doc in every household, deletes `users/{uid}`, then `admin.auth().deleteUser(uid)`. No `fcmTokens` cleanup needed — they live on `users/{uid}` per the Phase 12 centralization and go with that doc.
+
+### Public policy pages — built, scope expanded beyond just deletion
+
+15.3 was originally scoped as just the required deletion-policy page, but the user wanted the full legal picture done now rather than left as a dangling `docs/ANDROID_APP.md` checklist item — three pages were built together:
+
+- **`/data-deletion`** — the Play-required page: how to delete an account, exactly what's deleted immediately, the full owner-transfer behavior described in plain language (admin → longest-tenured admin, else longest-tenured guest promoted, else blocked), and what's *not* deleted (shared household bill data).
+- **`/privacy`** — full Privacy Policy: what's collected (account info via Google Sign-In, household/bill data, receipt photos — explicitly never stored — Splitwise connection data if opted in, FCM push tokens), how it's used, third-party processors (Firebase, Gemini, Splitwise), retention, security, children's privacy, contact.
+- **`/terms`** — Terms of Service: eligibility, acceptable use, households-are-shared-spaces, third-party-service disclaimer, no-financial-services clause (Splitly never moves money), IP, warranty disclaimer, liability limitation, governing law (United States, per user direction), contact.
+
+All three are wired into `AuthGate` (`ALWAYS_PUBLIC_PATHS`) and `AppShell` (`SHELLLESS_PATHS`) so they render with no app chrome and are reachable with or without a session — required since Play reviewers and cold visitors need to open them without logging in. `/login` now footer-links to `/terms` and `/privacy`; the Profile delete-confirm panel links to `/data-deletion`.
+
+**Explicitly flagged to the user, not glossed over**: these are solid, factually-grounded drafts (accuracy against actual app behavior was the design goal), not a substitute for an actual lawyer's review before a public Play Store submission — Terms of Service in particular is a binding contract, not just a disclosure. Contact email on all three is the user's personal address (`amansaraf28@gmail.com`) as a placeholder — they intend to swap in a dedicated Splitly address later.
+
+### Also still open
+- No email/notification to a new owner (transferred-to admin, or promoted-and-transferred-to guest) telling them it happened — flagged as a possible gap during design, deliberately deferred rather than treated as a blocker.
+- The blocking-only-when-no-successor path (`findSuccessor` returns null) was not exercised against a real account during implementation — destructive/irreversible to test live, so it's verified by code review only. Worth a careful look if it misbehaves in practice.
+- Legal review of `/privacy` and `/terms` before any public Play Store submission.

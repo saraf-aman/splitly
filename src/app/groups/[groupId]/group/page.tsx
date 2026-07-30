@@ -64,6 +64,7 @@ export default function GroupManagePage() {
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [memberActionError, setMemberActionError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -361,38 +362,61 @@ export default function GroupManagePage() {
         </div>
       )}
 
-      {/* ── Danger zone ── */}
-      {isCreator && (
-        <Card className="ring-destructive/30">
-          <CardContent className="flex flex-col gap-3">
-            <div>
-              <h2 className="text-sm font-medium text-destructive">Danger zone</h2>
-              <p className="text-caption text-muted-foreground">
-                Permanently deletes {group.name} — every member, bill, and item. This cannot
-                be undone.
-              </p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="confirm-group-name" className="text-caption text-muted-foreground">
-                Type <span className="font-money">{group.name}</span> to confirm
-              </Label>
-              <Input
-                id="confirm-group-name"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                disabled={deleting}
-              />
-            </div>
-            {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+      {/* ── Delete group ── */}
+      {isCreator && !showDeleteConfirm && (
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ring-1 ring-foreground/10 transition-colors hover:bg-destructive/10"
+          style={{ color: "var(--destructive)" }}
+        >
+          <Trash2 size={16} className="shrink-0" />
+          Delete group
+        </button>
+      )}
+
+      {isCreator && showDeleteConfirm && (
+        <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3">
+          <div>
+            <h2 className="text-sm font-medium text-destructive">Delete group</h2>
+            <p className="text-caption text-muted-foreground">
+              Deleting {group.name} will permanently remove all of its members, bills, and
+              items. This action is irreversible.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirm-group-name" className="text-caption text-muted-foreground">
+              Type &ldquo;<span className="font-money">{group.name}</span>&rdquo; to confirm
+            </Label>
+            <Input
+              id="confirm-group-name"
+              className="border-border bg-card dark:bg-card"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              disabled={deleting}
+            />
+          </div>
+          {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+          <div className="flex gap-2">
             <Button
-              className="self-start bg-destructive text-white hover:bg-destructive/90"
+              className="flex-1 bg-destructive text-white hover:bg-destructive/90"
               disabled={deleting || confirmText !== group.name}
               onClick={handleDeleteGroup}
             >
-              {deleting ? "Deleting..." : "Delete group forever"}
+              {deleting ? "Deleting…" : "Delete group"}
             </Button>
-          </CardContent>
-        </Card>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setConfirmText("");
+                setDeleteError(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

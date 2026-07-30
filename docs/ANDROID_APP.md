@@ -19,9 +19,9 @@ Captured from a planning discussion on 2026-07-29. Nothing here has been built y
 
 ## Cleanup checklist before a public Play Store listing
 
-- [ ] **Privacy policy** — required, publicly hosted URL, must accurately describe what's collected (Google account info via Firebase Auth, receipt photos in-transit only — never persisted, per existing architecture decision).
+- [x] **Privacy policy** — built as `/privacy` (plus `/terms` and `/data-deletion`), as part of `ROADMAP.md` Phase 15 rather than saved for this checklist — see `PROJECT_PLAN.md` §17. Not lawyer-reviewed; worth a pass before public submission.
 - [ ] **Play Data Safety form** — declares data collection/sharing in Play Console; needs to match reality (e.g. "photos not stored" is a good, honest answer given our current design).
-- [ ] **Account/data deletion flow** — Play policy requires apps with account creation to offer in-app data/account deletion, not just "email us." Currently we only have household deletion (creator-only, per CLAUDE.md roles section) — need a real "delete my account" path.
+- [x] **Account/data deletion flow** — built as `ROADMAP.md` Phase 15 (`/profile` → Delete account, `POST /api/account/delete`, silent household-ownership auto-transfer).
 - [ ] **Store listing assets** — icon (already have the amber "S" wordmark per Phase 3.6), feature graphic, phone screenshots, short/long description, content rating questionnaire.
 - [ ] **Currency handling** — checked the codebase: only a hardcoded `"USD"` found in `src/app/api/splitwise/push/route.ts`. Not a blocker for a first release, but worth revisiting if non-US households are ever expected.
 - [ ] **Firebase branding fix** (see below) — worth doing before a public listing; looks unprofessional to strangers in a way it doesn't to our own household.

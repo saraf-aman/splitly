@@ -115,8 +115,8 @@ Full design in `PROJECT_PLAN.md` §16. No exchange-rate conversion anywhere — 
 
 ## Phase 15 — Account deletion
 
-Driven by Google Play Store compliance (apps with account creation must offer in-app deletion + a public policy page), not a user feature request — see `PROJECT_PLAN.md` §17 for the full discussion so far. **Design is not finalized** — only one directional decision was made (block, don't cascade, for creators); everything else below still needs to be worked out in-session, not assumed.
+Driven by Google Play Store compliance (apps with account creation must offer in-app deletion + a public policy page), not a user feature request — see `PROJECT_PLAN.md` §17 for the full discussion so far.
 
-- [ ] **15.1** Design the account-deletion flow before building: confirm the block-not-cascade approach for household creators (§17), decide the exact UI location/confirmation UX, decide what happens to the Firebase Auth user record vs. just Firestore data, and decide the public policy page's route/content. Read `PROJECT_PLAN.md` §17 first — it lists the specific open questions from the original discussion.
-- [ ] **15.2** Build the in-app deletion flow per 15.1's design.
-- [ ] **15.3** Build the public policy page (no login required) describing what gets deleted.
+- [x] **15.1** Designed the account-deletion flow: UI location/confirmation UX, Auth-user deletion mechanics, public policy page timing, and the creator/owner scenario (silent auto-transfer, block only as a last resort) are all decided — see §17.
+- [x] **15.2** Built the in-app deletion flow: new account-level `/profile` page (also home to the personal Splitwise connect toggle and Sign out, both moved out of `NavDrawer`), `POST /api/account/delete` with the full auto-transfer/block logic (`findSuccessor`). `docs/CLAUDE.md`'s roles section updated to document the transfer as a deliberate second exception to "creator can't be changed."
+- [x] **15.3** Built `/data-deletion` (the required policy page), plus `/privacy` and `/terms` — the user wanted the full Privacy Policy / Terms of Service pair built now too, not deferred as a separate `ANDROID_APP.md` item. Phase 15 is done.

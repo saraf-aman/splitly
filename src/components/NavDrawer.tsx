@@ -6,7 +6,6 @@ import {
   Home,
   Settings,
   ArrowLeftRight,
-  LogOut,
   X,
   Copy,
   Check,
@@ -17,12 +16,11 @@ import {
   Link,
   Loader2,
   ChevronDown,
+  CircleUserRound,
 } from "lucide-react";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { useGroup, useMembers, leaveGroup } from "@/lib/group";
-import { useSplitwiseStatus, disconnectSplitwise, saveGroupSplitwise, clearGroupSplitwise } from "@/lib/splitwise";
+import { useSplitwiseStatus, saveGroupSplitwise, clearGroupSplitwise } from "@/lib/splitwise";
 
 interface SwGroup {
   id: number;
@@ -49,9 +47,6 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
-  // Splitwise personal connection
-  const [swConnecting, setSwConnecting] = useState(false);
-  const [swDisconnecting, setSwDisconnecting] = useState(false);
   const [swError, setSwError] = useState<string | null>(null);
 
   // Splitwise group linking (owner only)
@@ -149,12 +144,6 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
     }
   }
 
-  async function handleSignOut() {
-    close();
-    await signOut(auth);
-    router.replace("/login");
-  }
-
   function nav(href: string) {
     close();
     router.push(href);
@@ -164,39 +153,6 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
     await navigator.clipboard.writeText(householdId);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function handleSwConnect() {
-    if (!user) return;
-    setSwConnecting(true);
-    setSwError(null);
-    try {
-      const idToken = await user.getIdToken();
-      const returnPath = window.location.pathname;
-      const res = await fetch(
-        `/api/splitwise/connect?returnPath=${encodeURIComponent(returnPath)}`,
-        { headers: { Authorization: `Bearer ${idToken}` } },
-      );
-      if (!res.ok) throw new Error("Failed");
-      const { authUrl } = (await res.json()) as { authUrl: string };
-      window.location.href = authUrl;
-    } catch {
-      setSwError("Could not start Splitwise connection. Please try again.");
-      setSwConnecting(false);
-    }
-  }
-
-  async function handleSwDisconnect() {
-    if (!user) return;
-    setSwDisconnecting(true);
-    setSwError(null);
-    try {
-      await disconnectSplitwise(user.uid);
-    } catch {
-      setSwError("Could not disconnect. Please try again.");
-    } finally {
-      setSwDisconnecting(false);
-    }
   }
 
   async function handleOpenLinkPicker() {
@@ -292,6 +248,24 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
         {/* Primary nav */}
         <nav className="flex flex-col gap-0.5 p-3">
           <button
+            onClick={() => nav("/profile")}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+          >
+            {user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt=""
+                className="h-[18px] w-[18px] shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <CircleUserRound size={18} className="shrink-0 text-muted-foreground" />
+            )}
+            Profile
+          </button>
+
+          <div className="my-1 border-t border-border" />
+
+          <button
             onClick={() => nav(`/groups/${householdId}`)}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
           >
@@ -340,40 +314,18 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
 
         <div className="mx-3 border-t border-border" />
 
-        {/* Splitwise section */}
-        {!swLoading && (
+        {/* Splitwise section — personal connect/disconnect lives on /profile now;
+            this only covers the household-level group link (creator-only). */}
+        {!swLoading && (swConnected || isCreator) && (
           <div className="flex flex-col gap-1 px-3 py-3">
             <p className="mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Splitwise
             </p>
 
-            {/* Personal connection row */}
-            {swConnected ? (
-              <div className="flex items-center gap-3 rounded-lg px-3 py-2">
-                <CheckCircle size={14} className="shrink-0 text-emerald-600" />
-                <span className="flex-1 text-sm text-foreground">Connected</span>
-                <button
-                  onClick={handleSwDisconnect}
-                  disabled={swDisconnecting}
-                  className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
-                >
-                  {swDisconnecting
-                    ? <Loader2 size={12} className="animate-spin" />
-                    : <Unlink size={12} />}
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleSwConnect}
-                disabled={swConnecting}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
-              >
-                {swConnecting
-                  ? <Loader2 size={15} className="shrink-0 animate-spin text-muted-foreground" />
-                  : <span className="flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border border-muted-foreground text-[9px] font-bold text-muted-foreground">S</span>}
-                {swConnecting ? "Connecting…" : "Connect Splitwise"}
-              </button>
+            {!swConnected && isCreator && (
+              <p className="px-3 text-xs text-muted-foreground">
+                Connect Splitwise in your Profile to link this group.
+              </p>
             )}
 
             {/* Per-group Splitwise group — only when personally connected */}
@@ -523,15 +475,6 @@ export function NavDrawer({ householdId, isOpen, onClose }: Props) {
               </div>
             </div>
           )}
-
-          <button
-            onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-destructive/10"
-            style={{ color: "var(--destructive)" }}
-          >
-            <LogOut size={16} className="shrink-0" />
-            Sign out
-          </button>
         </nav>
       </div>
     </>

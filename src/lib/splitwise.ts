@@ -7,6 +7,7 @@ import { db } from "./firebase";
 interface SplitwiseConnection {
   accessToken: string;
   splitwiseUserId: number;
+  email?: string; // absent for connections made before this field was added
 }
 
 interface SplitwiseStatus {
